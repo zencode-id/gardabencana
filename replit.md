@@ -1,7 +1,7 @@
-# SiagaBot - Emergency Assistant Chatbot
+# Garda Bencana - Emergency Assistant Chatbot
 
 ## Overview
-SiagaBot is an Expo React Native web chatbot app for emergency/disaster assistance in Indonesia. Dark mode UI with real-time BMKG data integration for earthquakes and weather warnings.
+Garda Bencana is an Expo React Native web chatbot app for emergency/disaster assistance in Indonesia. Dark mode UI with real-time BMKG data integration for earthquakes and weather warnings.
 
 ## Architecture
 - **Frontend**: Expo Router (file-based routing), single-screen chat UI at `app/index.tsx`

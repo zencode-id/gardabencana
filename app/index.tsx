@@ -38,7 +38,7 @@ function formatTime(date: Date): string {
 
 const WELCOME_MESSAGE: Message = {
   id: "welcome",
-  text: "Halo! Saya SiagaBot, asisten darurat bencana Anda.\n\nSaya terhubung langsung ke data real-time BMKG untuk informasi gempa dan peringatan cuaca terkini.\n\nSilakan ketik pesan atau gunakan tombol aksi cepat di bawah.",
+  text: "Halo! Saya Garda Bencana, asisten darurat bencana Anda.\n\nSaya terhubung langsung ke data real-time BMKG untuk informasi gempa dan peringatan cuaca terkini.\n\nSilakan ketik pesan atau gunakan tombol aksi cepat di bawah.",
   isUser: false,
   timestamp: new Date(),
 };
@@ -195,7 +195,7 @@ export default function ChatScreen() {
             <Ionicons name="shield-checkmark" size={22} color={C.accent} />
           </View>
           <View>
-            <Text style={styles.headerTitle}>SiagaBot</Text>
+            <Text style={styles.headerTitle}>Garda Bencana</Text>
             <View style={styles.statusRow}>
               <View style={styles.statusDot} />
               <Text style={styles.statusText}>Online - BMKG Live</Text>

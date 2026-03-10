@@ -27,7 +27,7 @@ interface NowcastItem {
 
 async function fetchJson(url: string) {
   const res = await fetch(url, {
-    headers: { "User-Agent": "SiagaBot/1.0" },
+    headers: { "User-Agent": "Garda Bencana/1.0" },
   });
   if (!res.ok) throw new Error(`BMKG API error: ${res.status}`);
   return res.json();
@@ -35,7 +35,7 @@ async function fetchJson(url: string) {
 
 async function fetchXml(url: string): Promise<string> {
   const res = await fetch(url, {
-    headers: { "User-Agent": "SiagaBot/1.0" },
+    headers: { "User-Agent": "Garda Bencana/1.0" },
   });
   if (!res.ok) throw new Error(`BMKG API error: ${res.status}`);
   return res.text();
@@ -337,7 +337,7 @@ async function generateSmartReply(message: string): Promise<string> {
   }
 
   if (lower.includes("halo") || lower.includes("hai") || lower.includes("hi") || lower.includes("hello") || lower.includes("selamat")) {
-    return `Halo! Saya SiagaBot, siap membantu Anda dengan informasi kebencanaan.
+    return `Halo! Saya Garda Bencana, siap membantu Anda dengan informasi kebencanaan.
 
 Saya bisa membantu dengan:
 - Info gempa terkini (data real-time BMKG)
@@ -388,7 +388,7 @@ Simpan nomor-nomor ini di kontak HP Anda untuk keadaan darurat.`;
 Sumber data: BMKG`;
     return reply;
   } catch {
-    return `Saya SiagaBot, siap membantu Anda.
+    return `Saya Garda Bencana, siap membantu Anda.
 
 Silakan tanyakan tentang:
 - Info gempa terkini
