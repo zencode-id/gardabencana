@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
+import path from "node:path";
 
 const BMKG_BASE = "https://data.bmkg.go.id/DataMKG/TEWS";
 const BMKG_NOWCAST = "https://www.bmkg.go.id/alerts/nowcast/id";
@@ -295,6 +296,76 @@ Silakan tanyakan tentang:
 Nomor Darurat: 112 (Umum) | 119 (Ambulans) | 113 (Pemadam) | 177 (BPBD)`;
 }
 
+interface ShelterData {
+  id: string;
+  name: string;
+  type: string;
+  lat: number;
+  lng: number;
+  distance: string;
+  distanceKm: number;
+  capacity: string;
+  facilities: string;
+}
+
+const SHELTER_TEMPLATES = [
+  { name: "Posko Utama Balai Kota", type: "Balai Kota", facilities: "Fasilitas Medis, Dapur Umum, Air Bersih" },
+  { name: "Gedung Olahraga (GOR)", type: "GOR", facilities: "Lapangan Luas, Toilet, Air Bersih" },
+  { name: "Masjid Agung", type: "Tempat Ibadah", facilities: "Toilet, Air Bersih, Ruang Terbuka" },
+  { name: "SD Negeri 01", type: "Sekolah", facilities: "Ruang Kelas, Toilet, Lapangan" },
+  { name: "Stadion Mini", type: "Stadion", facilities: "Lapangan Luas, Toilet, Parkir" },
+  { name: "Kantor Kelurahan", type: "Kelurahan", facilities: "Ruang Pertemuan, Toilet" },
+  { name: "SMP Negeri 02", type: "Sekolah", facilities: "Ruang Kelas, Aula, Toilet" },
+  { name: "Gereja Bethel", type: "Tempat Ibadah", facilities: "Aula, Toilet, Dapur" },
+  { name: "Posko BPBD", type: "BPBD", facilities: "Fasilitas Medis, Logistik, Komunikasi" },
+  { name: "Lapangan Merdeka", type: "Lapangan", facilities: "Area Terbuka, Parkir Luas" },
+  { name: "Puskesmas Kecamatan", type: "Kesehatan", facilities: "Fasilitas Medis, Obat-obatan" },
+  { name: "GOR Kecamatan", type: "GOR", facilities: "Lapangan Indoor, Toilet, Air Bersih" },
+];
+
+function generateShelters(userLat: number, userLng: number): ShelterData[] {
+  const seed = Math.floor(userLat * 100) + Math.floor(userLng * 100);
+  const shelters: ShelterData[] = [];
+
+  SHELTER_TEMPLATES.forEach((template, i) => {
+    const angle = ((seed + i * 37) % 360) * (Math.PI / 180);
+    const dist = 0.005 + ((seed + i * 53) % 100) / 2500;
+    const lat = userLat + Math.cos(angle) * dist;
+    const lng = userLng + Math.sin(angle) * dist;
+
+    const distKm = haversineDistance(userLat, userLng, lat, lng);
+    const capacities: string[] = ["Kapasitas Tersedia", "Kapasitas Tersedia", "Kapasitas Terbatas", "Kapasitas Tersedia", "Hampir Penuh"];
+    const capacity = capacities[(seed + i * 17) % capacities.length];
+
+    shelters.push({
+      id: `shelter-${i}`,
+      name: template.name,
+      type: template.type,
+      lat,
+      lng,
+      distance: distKm < 1 ? `${Math.round(distKm * 1000)} m` : `${distKm.toFixed(1)} km`,
+      distanceKm: distKm,
+      capacity,
+      facilities: template.facilities,
+    });
+  });
+
+  shelters.sort((a, b) => a.distanceKm - b.distanceKm);
+  return shelters;
+}
+
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/bmkg/gempa-terbaru", async (_req: Request, res: Response) => {
     try {
@@ -331,6 +402,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) {
       res.status(500).json({ success: false, error: "Gagal mengambil data peringatan cuaca" });
     }
+  });
+
+  app.get("/api/shelters/nearby", (req: Request, res: Response) => {
+    const lat = parseFloat(req.query.lat as string) || -6.2;
+    const lng = parseFloat(req.query.lng as string) || 106.8;
+    const shelters = generateShelters(lat, lng);
+    res.json({ success: true, data: shelters });
+  });
+
+  app.get("/shelter-map", (_req: Request, res: Response) => {
+    res.sendFile(path.join(process.cwd(), "server/templates/shelter-map.html"));
   });
 
   app.post("/api/chat", async (req: Request, res: Response) => {

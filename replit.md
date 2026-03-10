@@ -15,7 +15,9 @@ Garda Bencana is an Expo React Native web chatbot app for emergency/disaster ass
 - `app/index.tsx` - Main chat screen with full UI (inverted FlatList, quick actions, keyboard-aware input)
 - `app/_layout.tsx` - Root layout with providers (fonts, QueryClient, KeyboardProvider)
 - `constants/colors.ts` - Dark theme color palette
-- `server/routes.ts` - Backend API routes (BMKG data + smart chat endpoint)
+- `server/routes.ts` - Backend API routes (BMKG data + smart chat + shelters)
+- `server/templates/shelter-map.html` - Leaflet map page for shelter finder
+- `components/ShelterFinder.tsx` - Shelter finder modal with map and list
 - `server/index.ts` - Express server entry point
 - `lib/query-client.ts` - API client with getApiUrl()
 
@@ -31,6 +33,17 @@ Garda Bencana is an Expo React Native web chatbot app for emergency/disaster ass
 - `GET /api/bmkg/gempa-dirasakan` - Felt earthquakes
 - `GET /api/bmkg/peringatan-cuaca` - Weather warnings (nowcast RSS)
 - `POST /api/chat` - Smart keyword-based chat with real BMKG data
+- `GET /api/shelters/nearby?lat=X&lng=Y` - Nearby shelter data
+- `GET /shelter-map?lat=X&lng=Y` - Leaflet map HTML page
+
+## Shelter Finder
+- Full-screen modal with interactive Leaflet/OpenStreetMap map (dark theme)
+- Geolocation to detect user position
+- Generated shelter data around user's location (12 shelter types)
+- Search/filter shelters by name or type
+- Shelter cards with distance, capacity status, facilities
+- "Rute Evakuasi" opens Google Maps directions
+- Accessible from: "Cari Shelter" quick action, earthquake modal, chat responses
 
 ## Chat Features (Groq AI primary, keyword fallback)
 - Earthquake data: real-time from BMKG API

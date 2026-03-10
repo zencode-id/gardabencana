@@ -20,6 +20,7 @@ import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import Colors from "@/constants/colors";
+import ShelterFinder from "@/components/ShelterFinder";
 
 const C = Colors.dark;
 const MAX_MOBILE_WIDTH = 480;
@@ -401,6 +402,7 @@ export default function ChatScreen() {
 
   const [latestGempa, setLatestGempa] = useState<GempaData | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showShelterFinder, setShowShelterFinder] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
   const [lastGempaId, setLastGempaId] = useState<string>("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -514,10 +516,14 @@ export default function ChatScreen() {
 
   const handleQuickAction = useCallback(
     (type: "gempa" | "p3k" | "shelter") => {
+      if (type === "shelter") {
+        setShowShelterFinder(true);
+        return;
+      }
       const labels = {
         gempa: "Berikan info gempa terbaru dari BMKG",
         p3k: "Berikan panduan pertolongan pertama (P3K) lengkap",
-        shelter: "Bagaimana cara mencari shelter atau posko pengungsian terdekat?",
+        shelter: "",
       };
       sendMessage(labels[type]);
     },
@@ -525,8 +531,8 @@ export default function ChatScreen() {
   );
 
   const handleShelterFromModal = useCallback(() => {
-    sendMessage("Bagaimana cara mencari shelter atau posko pengungsian terdekat?");
-  }, [sendMessage]);
+    setShowShelterFinder(true);
+  }, []);
 
   const handleSend = useCallback(() => {
     sendMessage(inputText);
@@ -715,6 +721,11 @@ export default function ChatScreen() {
         lastUpdated={lastUpdated}
         onRefresh={handleRefreshGempa}
         isRefreshing={isRefreshing}
+      />
+
+      <ShelterFinder
+        visible={showShelterFinder}
+        onClose={() => setShowShelterFinder(false)}
       />
     </View>
   );
