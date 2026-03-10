@@ -1,19 +1,22 @@
 # SiagaBot - Emergency Assistant Chatbot
 
 ## Overview
-SiagaBot is an Expo React Native mobile chatbot app for emergency/disaster assistance in Indonesia. Dark mode UI with quick-action buttons for earthquake info, first aid guides, and shelter locations.
+SiagaBot is an Expo React Native web chatbot app for emergency/disaster assistance in Indonesia. Dark mode UI with real-time BMKG data integration for earthquakes and weather warnings.
 
 ## Architecture
 - **Frontend**: Expo Router (file-based routing), single-screen chat UI at `app/index.tsx`
 - **Backend**: Express server on port 5000 (landing page + API)
+- **Data**: Real-time BMKG API integration (earthquakes, weather warnings)
 - **State**: Local state with useState (no persistence needed for chat)
 - **Styling**: React Native StyleSheet with custom dark theme in `constants/colors.ts`
 
 ## Key Files
-- `app/index.tsx` - Main chat screen with full UI
+- `app/index.tsx` - Main chat screen with full UI (inverted FlatList, quick actions, keyboard-aware input)
 - `app/_layout.tsx` - Root layout with providers (fonts, QueryClient, KeyboardProvider)
 - `constants/colors.ts` - Dark theme color palette
+- `server/routes.ts` - Backend API routes (BMKG data + smart chat endpoint)
 - `server/index.ts` - Express server entry point
+- `lib/query-client.ts` - API client with getApiUrl()
 
 ## Theme Colors
 - Background: `#0F1419` (deep dark)
@@ -21,13 +24,25 @@ SiagaBot is an Expo React Native mobile chatbot app for emergency/disaster assis
 - Accent: `#10B981` (emerald green)
 - User bubbles: emerald green, Bot bubbles: dark surface
 
-## Features
-- Chat with pre-built emergency responses
-- Quick actions: Info Gempa BMKG, Panduan P3K, Cari Shelter
-- Keyword-based responses for: gempa, banjir, kebakaran, tsunami, P3K
-- Dark mode UI with green accent
-- Typing indicator animation
-- Keyboard-aware input
+## Backend API Endpoints
+- `GET /api/bmkg/gempa-terbaru` - Latest earthquake from BMKG
+- `GET /api/bmkg/gempa-terkini` - Recent M5.0+ earthquakes
+- `GET /api/bmkg/gempa-dirasakan` - Felt earthquakes
+- `GET /api/bmkg/peringatan-cuaca` - Weather warnings (nowcast RSS)
+- `POST /api/chat` - Smart keyword-based chat with real BMKG data
+
+## Chat Features (keyword-based, no AI dependency)
+- Earthquake data: real-time from BMKG API
+- Weather warnings: real-time from BMKG nowcast RSS
+- P3K/first aid guides
+- Shelter/evacuation guides
+- Disaster guides: banjir, kebakaran, tsunami, longsor
+- Emergency numbers
+- Quick action buttons: Info Gempa, Panduan P3K, Cari Shelter
+
+## BMKG Data Sources
+- Earthquakes: `https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json`, `gempaterkini.json`, `gempadirasakan.json`
+- Weather warnings: `https://www.bmkg.go.id/alerts/nowcast/id` (XML RSS)
 
 ## Workflows
 - `Start Backend`: `npm run server:dev` (port 5000)
