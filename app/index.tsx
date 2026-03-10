@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Platform,
   StatusBar,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
@@ -16,6 +17,7 @@ import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
 
 const C = Colors.dark;
+const MAX_MOBILE_WIDTH = 480;
 
 interface Message {
   id: string;
@@ -139,6 +141,7 @@ function MessageBubble({ message }: { message: Message }) {
             styles.bubbleText,
             message.isUser ? styles.userBubbleText : styles.botBubbleText,
           ]}
+          selectable
         >
           {message.text}
         </Text>
@@ -174,13 +177,16 @@ function TypingIndicator() {
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
-  const topPadding = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
-  const bottomPadding = Platform.OS === "web" ? Math.max(insets.bottom, 34) : insets.bottom;
+  const isWeb = Platform.OS === "web";
+  const isWideScreen = isWeb && windowWidth > MAX_MOBILE_WIDTH;
+  const topPadding = isWeb ? 0 : insets.top;
+  const bottomPadding = isWeb ? 16 : insets.bottom;
 
   const invertedMessages = useMemo(
     () => [...messages].reverse(),
@@ -246,10 +252,8 @@ export default function ChatScreen() {
 
   const keyExtractor = useCallback((item: Message) => item.id, []);
 
-  return (
-    <View style={[styles.container, { paddingTop: topPadding }]}>
-      <StatusBar barStyle="light-content" />
-
+  const chatContent = (
+    <View style={[styles.chatContainer, { paddingTop: topPadding }]}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.headerIcon}>
@@ -285,7 +289,7 @@ export default function ChatScreen() {
           keyExtractor={keyExtractor}
           inverted
           style={styles.chatList}
-          contentContainerStyle={styles.chatContent}
+          contentContainerStyle={styles.chatContentPadding}
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -385,10 +389,47 @@ export default function ChatScreen() {
       </KeyboardAvoidingView>
     </View>
   );
+
+  if (isWideScreen) {
+    return (
+      <View style={styles.webWrapper}>
+        <StatusBar barStyle="light-content" />
+        <View style={styles.phoneFrame}>
+          {chatContent}
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.fullScreen}>
+      <StatusBar barStyle="light-content" />
+      {chatContent}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  fullScreen: {
+    flex: 1,
+    backgroundColor: C.background,
+  },
+  webWrapper: {
+    flex: 1,
+    backgroundColor: "#080C10",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  phoneFrame: {
+    width: MAX_MOBILE_WIDTH,
+    height: "100%",
+    maxHeight: 860,
+    borderRadius: Platform.OS === "web" ? 24 : 0,
+    overflow: "hidden",
+    borderWidth: Platform.OS === "web" ? 1 : 0,
+    borderColor: C.border,
+  },
+  chatContainer: {
     flex: 1,
     backgroundColor: C.background,
   },
@@ -452,7 +493,7 @@ const styles = StyleSheet.create({
   chatList: {
     flex: 1,
   },
-  chatContent: {
+  chatContentPadding: {
     paddingHorizontal: 12,
     paddingVertical: 16,
     gap: 12,
@@ -582,7 +623,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
     paddingHorizontal: 16,
-    paddingVertical: Platform.OS === "ios" ? 10 : 4,
+    paddingVertical: Platform.OS === "ios" ? 10 : 8,
     minHeight: 44,
     justifyContent: "center",
   },
@@ -592,6 +633,7 @@ const styles = StyleSheet.create({
     color: C.text,
     maxHeight: 100,
     lineHeight: 20,
+    ...(Platform.OS === "web" ? { outlineStyle: "none" as any } : {}),
   },
   sendButton: {
     width: 44,
