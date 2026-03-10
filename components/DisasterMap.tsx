@@ -9,6 +9,8 @@ import {
   FlatList,
   ActivityIndicator,
   Image,
+  TextInput,
+  ScrollView,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { getApiUrl } from "@/lib/query-client";
@@ -43,6 +45,50 @@ const FILTERS: { key: DisasterFilter; label: string; icon: string; color: string
   { key: "haze", label: "Asap", icon: "cloud", color: "#8B5CF6" },
   { key: "wind", label: "Angin", icon: "thunderstorm", color: "#06B6D4" },
   { key: "volcano", label: "Gunung", icon: "triangle", color: "#F97316" },
+];
+
+interface Province {
+  code: string;
+  name: string;
+}
+
+const PROVINCES: Province[] = [
+  { code: "", name: "Seluruh Indonesia" },
+  { code: "ID-AC", name: "Aceh" },
+  { code: "ID-SU", name: "Sumatera Utara" },
+  { code: "ID-SB", name: "Sumatera Barat" },
+  { code: "ID-RI", name: "Riau" },
+  { code: "ID-JA", name: "Jambi" },
+  { code: "ID-SS", name: "Sumatera Selatan" },
+  { code: "ID-BE", name: "Bengkulu" },
+  { code: "ID-LA", name: "Lampung" },
+  { code: "ID-BB", name: "Kep. Bangka Belitung" },
+  { code: "ID-KR", name: "Kep. Riau" },
+  { code: "ID-JK", name: "DKI Jakarta" },
+  { code: "ID-JB", name: "Jawa Barat" },
+  { code: "ID-JT", name: "Jawa Tengah" },
+  { code: "ID-YO", name: "DI Yogyakarta" },
+  { code: "ID-JI", name: "Jawa Timur" },
+  { code: "ID-BT", name: "Banten" },
+  { code: "ID-BA", name: "Bali" },
+  { code: "ID-NB", name: "Nusa Tenggara Barat" },
+  { code: "ID-NT", name: "Nusa Tenggara Timur" },
+  { code: "ID-KB", name: "Kalimantan Barat" },
+  { code: "ID-KT", name: "Kalimantan Tengah" },
+  { code: "ID-KS", name: "Kalimantan Selatan" },
+  { code: "ID-KI", name: "Kalimantan Timur" },
+  { code: "ID-KU", name: "Kalimantan Utara" },
+  { code: "ID-SA", name: "Sulawesi Utara" },
+  { code: "ID-ST", name: "Sulawesi Tengah" },
+  { code: "ID-SG", name: "Sulawesi Selatan" },
+  { code: "ID-SR", name: "Sulawesi Tenggara" },
+  { code: "ID-GO", name: "Gorontalo" },
+  { code: "ID-SN", name: "Sulawesi Barat" },
+  { code: "ID-MA", name: "Maluku" },
+  { code: "ID-MU", name: "Maluku Utara" },
+  { code: "ID-PA", name: "Papua" },
+  { code: "ID-PB", name: "Papua Barat" },
+  { code: "ID-SL", name: "Papua Selatan" },
 ];
 
 function getDisasterColor(type: string): string {
@@ -250,16 +296,22 @@ export default function DisasterMap({
   const [reports, setReports] = useState<DisasterReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<DisasterFilter>("");
+  const [activeProvince, setActiveProvince] = useState("");
+  const [showProvinceModal, setShowProvinceModal] = useState(false);
+  const [provinceSearch, setProvinceSearch] = useState("");
   const [selectedReport, setSelectedReport] = useState<DisasterReport | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
-  const fetchReports = useCallback(async (filter: DisasterFilter) => {
+  const activeProvinceName = PROVINCES.find(p => p.code === activeProvince)?.name || "Seluruh Indonesia";
+
+  const fetchReports = useCallback(async (filter: DisasterFilter, admin: string) => {
     setLoading(true);
     try {
       const url = new URL("/api/disasters/reports", getApiUrl());
       url.searchParams.set("timeperiod", "604800");
       if (filter) url.searchParams.set("disaster", filter);
+      if (admin) url.searchParams.set("admin", admin);
       const res = await fetch(url.toString());
       const data = await res.json();
       if (data.success) {
@@ -273,10 +325,10 @@ export default function DisasterMap({
 
   useEffect(() => {
     if (visible) {
-      fetchReports(activeFilter);
+      fetchReports(activeFilter, activeProvince);
       setSelectedReport(null);
     }
-  }, [visible, activeFilter, fetchReports]);
+  }, [visible, activeFilter, activeProvince, fetchReports]);
 
   useEffect(() => {
     if (Platform.OS === "web" && visible) {
@@ -337,7 +389,7 @@ export default function DisasterMap({
           <Text style={s.headerTitle}>Peta Bencana</Text>
           <Pressable
             style={({ pressed }) => [s.refreshBtn, { opacity: pressed ? 0.6 : 1 }]}
-            onPress={() => fetchReports(activeFilter)}
+            onPress={() => fetchReports(activeFilter, activeProvince)}
           >
             <Feather name="refresh-cw" size={18} color={C.textSecondary} />
           </Pressable>
@@ -379,6 +431,15 @@ export default function DisasterMap({
           />
         </View>
 
+        <Pressable
+          style={({ pressed }) => [s.provinceBtn, { opacity: pressed ? 0.8 : 1 }]}
+          onPress={() => { setProvinceSearch(""); setShowProvinceModal(true); }}
+        >
+          <Ionicons name="location-outline" size={16} color={C.accent} />
+          <Text style={s.provinceBtnText} numberOfLines={1}>{activeProvinceName}</Text>
+          <Ionicons name="chevron-down" size={14} color={C.textMuted} />
+        </Pressable>
+
         <View style={s.mapContainer}>
           {Platform.OS === "web" ? (
             <iframe
@@ -399,7 +460,7 @@ export default function DisasterMap({
           <View style={s.listHeader}>
             <Text style={s.listTitle}>Laporan Bencana</Text>
             <View style={s.countBadge}>
-              <Text style={s.countText}>{reports.length} Laporan (7 hari)</Text>
+              <Text style={s.countText}>{reports.length} Laporan</Text>
             </View>
           </View>
 
@@ -491,10 +552,156 @@ export default function DisasterMap({
             </View>
           </Modal>
         )}
+
+        <Modal
+          visible={showProvinceModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setShowProvinceModal(false)}
+        >
+          <View style={provStyles.overlay}>
+            <View style={provStyles.sheet}>
+              <View style={provStyles.handle} />
+              <Text style={provStyles.title}>Pilih Wilayah</Text>
+
+              <View style={provStyles.searchBox}>
+                <Ionicons name="search" size={16} color={C.textMuted} />
+                <TextInput
+                  style={provStyles.searchInput}
+                  placeholder="Cari provinsi..."
+                  placeholderTextColor={C.textMuted}
+                  value={provinceSearch}
+                  onChangeText={setProvinceSearch}
+                  autoFocus
+                />
+                {provinceSearch.length > 0 && (
+                  <Pressable onPress={() => setProvinceSearch("")}>
+                    <Ionicons name="close-circle" size={16} color={C.textMuted} />
+                  </Pressable>
+                )}
+              </View>
+
+              <ScrollView style={provStyles.list} showsVerticalScrollIndicator={false}>
+                {PROVINCES
+                  .filter(p => p.name.toLowerCase().includes(provinceSearch.toLowerCase()))
+                  .map(p => {
+                    const isActive = p.code === activeProvince;
+                    return (
+                      <Pressable
+                        key={p.code || "all"}
+                        style={({ pressed }) => [
+                          provStyles.item,
+                          isActive && provStyles.itemActive,
+                          { opacity: pressed ? 0.7 : 1 },
+                        ]}
+                        onPress={() => {
+                          setActiveProvince(p.code);
+                          setShowProvinceModal(false);
+                          setMapReady(false);
+                        }}
+                      >
+                        <Ionicons
+                          name={p.code ? "location" : "globe-outline"}
+                          size={16}
+                          color={isActive ? C.accent : C.textMuted}
+                        />
+                        <Text style={[provStyles.itemText, isActive && provStyles.itemTextActive]}>
+                          {p.name}
+                        </Text>
+                        {isActive && (
+                          <Ionicons name="checkmark-circle" size={16} color={C.accent} />
+                        )}
+                      </Pressable>
+                    );
+                  })
+                }
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </View>
     </Modal>
   );
 }
+
+const provStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: C.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "70%",
+    paddingBottom: Platform.OS === "web" ? 34 : 20,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderBottomWidth: 0,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: C.border,
+    alignSelf: "center",
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 17,
+    fontFamily: "Inter_700Bold",
+    color: C.text,
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: C.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+    marginBottom: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    color: C.text,
+    padding: 0,
+  },
+  list: {
+    paddingHorizontal: 16,
+  },
+  item: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 2,
+  },
+  itemActive: {
+    backgroundColor: C.accent + "12",
+  },
+  itemText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    color: C.textSecondary,
+  },
+  itemTextActive: {
+    color: C.accent,
+    fontFamily: "Inter_600SemiBold",
+  },
+});
 
 const detailStyles = StyleSheet.create({
   overlay: {
@@ -639,6 +846,25 @@ const s = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_600SemiBold",
     color: C.textMuted,
+  },
+  provinceBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 12,
+    marginVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: C.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  provinceBtnText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: C.text,
   },
   mapContainer: {
     height: 200,
