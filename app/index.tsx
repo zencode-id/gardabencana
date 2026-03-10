@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from "react";
+import React, { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,9 @@ import {
   StatusBar,
   useWindowDimensions,
   ActivityIndicator,
+  Modal,
+  Animated,
+  Share,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
@@ -20,12 +23,28 @@ import Colors from "@/constants/colors";
 
 const C = Colors.dark;
 const MAX_MOBILE_WIDTH = 480;
+const POLL_INTERVAL = 60000;
 
 interface Message {
   id: string;
   text: string;
   isUser: boolean;
   timestamp: Date;
+}
+
+interface GempaData {
+  Tanggal: string;
+  Jam: string;
+  DateTime: string;
+  Coordinates: string;
+  Lintang: string;
+  Bujur: string;
+  Magnitude: string;
+  Kedalaman: string;
+  Wilayah: string;
+  Potensi?: string;
+  Dirasakan?: string;
+  Shakemap?: string;
 }
 
 function generateId(): string {
@@ -36,12 +55,283 @@ function formatTime(date: Date): string {
   return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
 }
 
+function timeAgo(dateStr: string): string {
+  const now = new Date();
+  const past = new Date(dateStr);
+  const diffMs = now.getTime() - past.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "Baru saja";
+  if (diffMin < 60) return `${diffMin} menit yang lalu`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} jam yang lalu`;
+  return `${Math.floor(diffHr / 24)} hari yang lalu`;
+}
+
 const WELCOME_MESSAGE: Message = {
   id: "welcome",
   text: "Halo! Saya Garda Bencana, asisten darurat bencana Anda.\n\nSaya terhubung langsung ke data real-time BMKG dan dilengkapi AI untuk membantu Anda.\n\nSilakan ketik pesan atau gunakan tombol aksi cepat di bawah.",
   isUser: false,
   timestamp: new Date(),
 };
+
+function EarthquakeModal({
+  visible,
+  gempa,
+  onClose,
+  onShelter,
+  lastUpdated,
+  onRefresh,
+  isRefreshing,
+}: {
+  visible: boolean;
+  gempa: GempaData | null;
+  onClose: () => void;
+  onShelter: () => void;
+  lastUpdated: Date | null;
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}) {
+  if (!gempa) return null;
+
+  const mag = parseFloat(gempa.Magnitude);
+  const isTsunami = gempa.Potensi?.toLowerCase().includes("berpotensi tsunami") || false;
+  const noTsunami = gempa.Potensi?.toLowerCase().includes("tidak berpotensi") || !isTsunami;
+
+  const magColor = mag >= 7 ? "#EF4444" : mag >= 5 ? "#F59E0B" : "#10B981";
+
+  const handleShare = async () => {
+    const text = `Info Gempa BMKG\n\nMagnitudo: M${gempa.Magnitude}\nLokasi: ${gempa.Wilayah}\nWaktu: ${gempa.Tanggal}, ${gempa.Jam}\nKedalaman: ${gempa.Kedalaman}\nKoordinat: ${gempa.Lintang}, ${gempa.Bujur}\nStatus: ${gempa.Potensi || "-"}\n${gempa.Dirasakan ? `Dirasakan: ${gempa.Dirasakan}` : ""}\n\nSumber: BMKG - via Garda Bencana`;
+    try {
+      if (Platform.OS === "web") {
+        if (navigator.share) {
+          await navigator.share({ title: "Info Gempa BMKG", text });
+        } else {
+          await navigator.clipboard.writeText(text);
+        }
+      } else {
+        await Share.share({ message: text });
+      }
+    } catch {}
+  };
+
+  const depthText = gempa.Kedalaman;
+  const depthNum = parseInt(depthText);
+  const depthLabel =
+    depthNum <= 10 ? "Sangat Dangkal" :
+    depthNum <= 60 ? "Dangkal" :
+    depthNum <= 300 ? "Menengah" : "Dalam";
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
+      <View style={modalStyles.overlay}>
+        <View style={modalStyles.container}>
+          <View style={modalStyles.header}>
+            <View style={modalStyles.headerLeft}>
+              <MaterialCommunityIcons name="earth" size={22} color={C.accent} />
+              <Text style={modalStyles.headerTitle}>Info Gempa BMKG</Text>
+            </View>
+            <View style={modalStyles.headerRight}>
+              <Pressable
+                onPress={onRefresh}
+                style={({ pressed }) => [
+                  modalStyles.refreshBtn,
+                  { opacity: pressed ? 0.6 : 1 },
+                ]}
+              >
+                {isRefreshing ? (
+                  <ActivityIndicator size="small" color={C.textSecondary} />
+                ) : (
+                  <Feather name="refresh-cw" size={18} color={C.textSecondary} />
+                )}
+              </Pressable>
+              <Pressable
+                onPress={onClose}
+                style={({ pressed }) => [
+                  modalStyles.closeBtn,
+                  { opacity: pressed ? 0.6 : 1 },
+                ]}
+              >
+                <Ionicons name="close" size={22} color={C.textSecondary} />
+              </Pressable>
+            </View>
+          </View>
+
+          {lastUpdated && (
+            <Text style={modalStyles.updateText}>
+              Data diperbarui {timeAgo(lastUpdated.toISOString())}
+            </Text>
+          )}
+
+          <View style={modalStyles.scrollContent}>
+            <View style={modalStyles.mainCard}>
+              <View style={modalStyles.terkiniContainer}>
+                <View style={[modalStyles.terkiniBadge, { backgroundColor: magColor + "22", borderColor: magColor + "44" }]}>
+                  <Text style={[modalStyles.terkiniText, { color: magColor }]}>TERKINI</Text>
+                </View>
+              </View>
+
+              <Text style={[modalStyles.magnitude, { color: magColor }]}>
+                M {gempa.Magnitude}
+              </Text>
+
+              <View style={modalStyles.coordRow}>
+                <Ionicons name="location" size={14} color={C.accent} />
+                <Text style={modalStyles.coordText}>
+                  {gempa.Lintang}, {gempa.Bujur}
+                </Text>
+              </View>
+
+              <Text style={modalStyles.wilayah}>{gempa.Wilayah}</Text>
+
+              <View
+                style={[
+                  modalStyles.tsunamiBadge,
+                  noTsunami
+                    ? { backgroundColor: "#10B98118", borderColor: "#10B98133" }
+                    : { backgroundColor: "#EF444418", borderColor: "#EF444433" },
+                ]}
+              >
+                <Ionicons
+                  name={noTsunami ? "checkmark-circle" : "warning"}
+                  size={16}
+                  color={noTsunami ? "#10B981" : "#EF4444"}
+                />
+                <Text
+                  style={[
+                    modalStyles.tsunamiText,
+                    { color: noTsunami ? "#10B981" : "#EF4444" },
+                  ]}
+                >
+                  {noTsunami ? "Tidak Berpotensi Tsunami" : "Berpotensi Tsunami"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={modalStyles.detailRow}>
+              <View style={modalStyles.detailCard}>
+                <View style={modalStyles.detailIconContainer}>
+                  <Ionicons name="time-outline" size={18} color={C.accent} />
+                </View>
+                <Text style={modalStyles.detailLabel}>WAKTU KEJADIAN</Text>
+                <Text style={modalStyles.detailValue}>{gempa.Jam}</Text>
+                <Text style={modalStyles.detailSub}>{gempa.Tanggal}</Text>
+              </View>
+              <View style={modalStyles.detailCard}>
+                <View style={modalStyles.detailIconContainer}>
+                  <MaterialCommunityIcons name="arrow-collapse-down" size={18} color={C.accent} />
+                </View>
+                <Text style={modalStyles.detailLabel}>KEDALAMAN</Text>
+                <Text style={modalStyles.detailValue}>{gempa.Kedalaman}</Text>
+                <Text style={modalStyles.detailSub}>{depthLabel}</Text>
+              </View>
+            </View>
+
+            {gempa.Dirasakan && (
+              <View style={modalStyles.feltCard}>
+                <View style={modalStyles.feltHeader}>
+                  <MaterialCommunityIcons name="pulse" size={18} color={C.warning} />
+                  <Text style={modalStyles.feltLabel}>DIRASAKAN (SKALA MMI)</Text>
+                </View>
+                <Text style={modalStyles.feltValue}>{gempa.Dirasakan}</Text>
+              </View>
+            )}
+
+            <View style={modalStyles.actionRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  modalStyles.shareBtn,
+                  { opacity: pressed ? 0.7 : 1 },
+                ]}
+                onPress={handleShare}
+              >
+                <Ionicons name="share-outline" size={18} color={C.text} />
+                <Text style={modalStyles.shareBtnText}>Bagikan</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  modalStyles.shelterBtn,
+                  { opacity: pressed ? 0.7 : 1 },
+                ]}
+                onPress={() => {
+                  onClose();
+                  onShelter();
+                }}
+              >
+                <Ionicons name="location" size={18} color="#fff" />
+                <Text style={modalStyles.shelterBtnText}>Cari Shelter</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function NotificationBanner({
+  gempa,
+  onPress,
+  onDismiss,
+}: {
+  gempa: GempaData;
+  onPress: () => void;
+  onDismiss: () => void;
+}) {
+  const slideAnim = useRef(new Animated.Value(-120)).current;
+
+  useEffect(() => {
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 50,
+      friction: 9,
+    }).start();
+
+    const timer = setTimeout(() => {
+      Animated.timing(slideAnim, {
+        toValue: -120,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => onDismiss());
+    }, 8000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  const mag = parseFloat(gempa.Magnitude);
+  const magColor = mag >= 7 ? "#EF4444" : mag >= 5 ? "#F59E0B" : "#10B981";
+
+  return (
+    <Animated.View
+      style={[
+        notifStyles.banner,
+        { transform: [{ translateY: slideAnim }] },
+      ]}
+    >
+      <Pressable style={notifStyles.bannerContent} onPress={onPress}>
+        <View style={notifStyles.bannerLeft}>
+          <View style={[notifStyles.magCircle, { backgroundColor: magColor + "22", borderColor: magColor }]}>
+            <Text style={[notifStyles.magText, { color: magColor }]}>M{gempa.Magnitude}</Text>
+          </View>
+          <View style={notifStyles.bannerInfo}>
+            <Text style={notifStyles.bannerTitle}>Gempa Terbaru Terdeteksi</Text>
+            <Text style={notifStyles.bannerSub} numberOfLines={1}>
+              {gempa.Wilayah}
+            </Text>
+          </View>
+        </View>
+        <Pressable onPress={onDismiss} hitSlop={10}>
+          <Ionicons name="close" size={18} color={C.textMuted} />
+        </Pressable>
+      </Pressable>
+    </Animated.View>
+  );
+}
 
 function MessageBubble({ message }: { message: Message }) {
   return (
@@ -109,10 +399,60 @@ export default function ChatScreen() {
   const inputRef = useRef<TextInput>(null);
   const conversationHistory = useRef<{ role: string; content: string }[]>([]);
 
+  const [latestGempa, setLatestGempa] = useState<GempaData | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [showBanner, setShowBanner] = useState(false);
+  const [lastGempaId, setLastGempaId] = useState<string>("");
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const isWeb = Platform.OS === "web";
   const isWideScreen = isWeb && windowWidth > MAX_MOBILE_WIDTH;
   const topPadding = isWeb ? 0 : insets.top;
   const bottomPadding = isWeb ? 16 : insets.bottom;
+
+  const fetchLatestGempa = useCallback(async (showNotif = true) => {
+    try {
+      const url = new URL("/api/bmkg/gempa-terbaru", getApiUrl());
+      const res = await fetch(url.toString());
+      const data = await res.json();
+      if (data.success && data.data) {
+        const gempa: GempaData = data.data;
+        const gempaId = `${gempa.DateTime}_${gempa.Magnitude}_${gempa.Coordinates}`;
+        setLatestGempa(gempa);
+        setLastUpdated(new Date());
+
+        if (showNotif && lastGempaId && gempaId !== lastGempaId) {
+          setShowBanner(true);
+          if (Platform.OS !== "web") {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          }
+        }
+        setLastGempaId(gempaId);
+      }
+    } catch (e) {
+      console.error("Failed to fetch earthquake data:", e);
+    }
+  }, [lastGempaId]);
+
+  useEffect(() => {
+    fetchLatestGempa(false);
+    const interval = setInterval(() => fetchLatestGempa(true), POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (lastGempaId) {
+      const interval = setInterval(() => fetchLatestGempa(true), POLL_INTERVAL);
+      return () => clearInterval(interval);
+    }
+  }, [lastGempaId, fetchLatestGempa]);
+
+  const handleRefreshGempa = useCallback(async () => {
+    setIsRefreshing(true);
+    await fetchLatestGempa(false);
+    setIsRefreshing(false);
+  }, [fetchLatestGempa]);
 
   const invertedMessages = useMemo(
     () => [...messages].reverse(),
@@ -184,6 +524,10 @@ export default function ChatScreen() {
     [sendMessage],
   );
 
+  const handleShelterFromModal = useCallback(() => {
+    sendMessage("Bagaimana cara mencari shelter atau posko pengungsian terdekat?");
+  }, [sendMessage]);
+
   const handleSend = useCallback(() => {
     sendMessage(inputText);
     inputRef.current?.focus();
@@ -212,11 +556,38 @@ export default function ChatScreen() {
           </View>
         </View>
         <View style={styles.headerRight}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.gempaHeaderBtn,
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+            onPress={() => {
+              handleRefreshGempa();
+              setShowModal(true);
+            }}
+            testID="gempa-notif-btn"
+          >
+            <MaterialCommunityIcons name="earth" size={18} color={C.accent} />
+            {latestGempa && (
+              <View style={styles.gempaDot} />
+            )}
+          </Pressable>
           <View style={styles.bmkgBadge}>
             <Text style={styles.bmkgBadgeText}>BMKG</Text>
           </View>
         </View>
       </View>
+
+      {showBanner && latestGempa && (
+        <NotificationBanner
+          gempa={latestGempa}
+          onPress={() => {
+            setShowBanner(false);
+            setShowModal(true);
+          }}
+          onDismiss={() => setShowBanner(false)}
+        />
+      )}
 
       <KeyboardAvoidingView
         style={styles.keyboardView}
@@ -335,6 +706,16 @@ export default function ChatScreen() {
           </Text>
         </View>
       </KeyboardAvoidingView>
+
+      <EarthquakeModal
+        visible={showModal}
+        gempa={latestGempa}
+        onClose={() => setShowModal(false)}
+        onShelter={handleShelterFromModal}
+        lastUpdated={lastUpdated}
+        onRefresh={handleRefreshGempa}
+        isRefreshing={isRefreshing}
+      />
     </View>
   );
 
@@ -356,6 +737,300 @@ export default function ChatScreen() {
     </View>
   );
 }
+
+const notifStyles = StyleSheet.create({
+  banner: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  bannerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#1A2332",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#F59E0B33",
+    ...Platform.select({
+      web: {
+        boxShadow: "0 4px 20px rgba(245, 158, 11, 0.15)",
+      },
+      default: {
+        shadowColor: "#F59E0B",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 10,
+        elevation: 8,
+      },
+    }),
+  },
+  bannerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+  magCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+  },
+  magText: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+  },
+  bannerInfo: {
+    flex: 1,
+  },
+  bannerTitle: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: "#F59E0B",
+  },
+  bannerSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: C.textSecondary,
+    marginTop: 1,
+  },
+});
+
+const modalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "flex-end",
+  },
+  container: {
+    backgroundColor: C.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "90%",
+    paddingBottom: Platform.OS === "web" ? 34 : 20,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 8,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    color: C.text,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  refreshBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: C.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: C.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  updateText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: C.textMuted,
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+  },
+  mainCard: {
+    backgroundColor: C.surface,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: C.border,
+    marginBottom: 12,
+  },
+  terkiniContainer: {
+    marginBottom: 12,
+  },
+  terkiniBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  terkiniText: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.5,
+  },
+  magnitude: {
+    fontSize: 56,
+    fontFamily: "Inter_700Bold",
+    marginBottom: 8,
+  },
+  coordRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 6,
+  },
+  coordText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: C.textSecondary,
+  },
+  wilayah: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    color: C.textSecondary,
+    textAlign: "center",
+    marginBottom: 16,
+    paddingHorizontal: 10,
+  },
+  tsunamiBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: 1,
+  },
+  tsunamiText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  detailRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 12,
+  },
+  detailCard: {
+    flex: 1,
+    backgroundColor: C.surface,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  detailIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: C.quickAction,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  detailLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    color: C.textMuted,
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  detailValue: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    color: C.text,
+    marginBottom: 2,
+  },
+  detailSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: C.textSecondary,
+  },
+  feltCard: {
+    backgroundColor: C.surface,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: C.border,
+    marginBottom: 16,
+  },
+  feltHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  feltLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    color: C.textMuted,
+    letterSpacing: 0.5,
+  },
+  feltValue: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: C.text,
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 4,
+  },
+  shareBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  shareBtnText: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    color: C.text,
+  },
+  shelterBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: C.accent,
+  },
+  shelterBtnText: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
+  },
+});
 
 const styles = StyleSheet.create({
   fullScreen: {
@@ -432,6 +1107,27 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Inter_400Regular",
     color: C.accent,
+  },
+  gempaHeaderBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: C.quickAction,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: C.quickActionBorder,
+  },
+  gempaDot: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#F59E0B",
+    borderWidth: 1.5,
+    borderColor: C.surface,
   },
   bmkgBadge: {
     backgroundColor: C.quickAction,
