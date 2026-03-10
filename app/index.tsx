@@ -335,6 +335,95 @@ function NotificationBanner({
   );
 }
 
+interface DisasterNotif {
+  id: string;
+  type: string;
+  typeLabel: string;
+  text: string;
+  city: string;
+  createdAt: string;
+  floodDepth: number | null;
+}
+
+const DISASTER_COLORS: Record<string, string> = {
+  flood: "#3B82F6",
+  earthquake: "#F59E0B",
+  fire: "#EF4444",
+  haze: "#8B5CF6",
+  wind: "#06B6D4",
+  volcano: "#F97316",
+};
+
+const DISASTER_ICONS: Record<string, string> = {
+  flood: "water",
+  earthquake: "earth",
+  fire: "flame",
+  haze: "cloud",
+  wind: "thunderstorm",
+  volcano: "triangle",
+};
+
+function DisasterNotifBanner({
+  report,
+  onPress,
+  onDismiss,
+}: {
+  report: DisasterNotif;
+  onPress: () => void;
+  onDismiss: () => void;
+}) {
+  const slideAnim = useRef(new Animated.Value(-120)).current;
+  const color = DISASTER_COLORS[report.type] || "#10B981";
+  const iconName = DISASTER_ICONS[report.type] || "alert-circle";
+
+  useEffect(() => {
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 50,
+      friction: 9,
+    }).start();
+
+    const timer = setTimeout(() => {
+      Animated.timing(slideAnim, {
+        toValue: -120,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => onDismiss());
+    }, 10000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        disasterNotifStyles.banner,
+        { transform: [{ translateY: slideAnim }] },
+      ]}
+    >
+      <View style={[disasterNotifStyles.bannerContent, { borderColor: color + "33" }]}>
+        <Pressable style={disasterNotifStyles.bannerLeft} onPress={onPress}>
+          <View style={[disasterNotifStyles.iconCircle, { backgroundColor: color + "22", borderColor: color }]}>
+            <Ionicons name={iconName as any} size={18} color={color} />
+          </View>
+          <View style={disasterNotifStyles.bannerInfo}>
+            <Text style={[disasterNotifStyles.bannerTitle, { color }]}>
+              {report.typeLabel} — Laporan Baru
+            </Text>
+            <Text style={disasterNotifStyles.bannerSub} numberOfLines={1}>
+              {report.city || "Indonesia"}{report.floodDepth ? ` • ${report.floodDepth}cm` : ""}
+            </Text>
+          </View>
+        </Pressable>
+        <Pressable onPress={onDismiss} hitSlop={10}>
+          <Ionicons name="close" size={18} color={C.textMuted} />
+        </Pressable>
+      </View>
+    </Animated.View>
+  );
+}
+
 function MessageBubble({ message }: { message: Message }) {
   return (
     <View
@@ -409,6 +498,10 @@ export default function ChatScreen() {
   const [lastGempaId, setLastGempaId] = useState<string>("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [disasterNotif, setDisasterNotif] = useState<DisasterNotif | null>(null);
+  const [showDisasterBanner, setShowDisasterBanner] = useState(false);
+  const lastDisasterIds = useRef<Set<string>>(new Set());
+  const disasterInitialized = useRef(false);
 
   const isWeb = Platform.OS === "web";
   const isWideScreen = isWeb && windowWidth > MAX_MOBILE_WIDTH;
@@ -457,6 +550,52 @@ export default function ChatScreen() {
     await fetchLatestGempa(false);
     setIsRefreshing(false);
   }, [fetchLatestGempa]);
+
+  const fetchDisasterReports = useCallback(async () => {
+    try {
+      const url = new URL("/api/disasters/reports", getApiUrl());
+      url.searchParams.set("timeperiod", "3600");
+      const res = await fetch(url.toString());
+      const data = await res.json();
+      if (data.success) {
+        const reports: any[] = data.data || [];
+        const currentIds = new Set<string>(reports.map((r: any) => r.id));
+
+        if (disasterInitialized.current && reports.length > 0) {
+          const newReports = reports
+            .filter((r: any) => !lastDisasterIds.current.has(r.id))
+            .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          if (newReports.length > 0) {
+            const latest = newReports[0];
+            setDisasterNotif({
+              id: latest.id,
+              type: latest.type,
+              typeLabel: latest.typeLabel,
+              text: latest.text,
+              city: latest.city,
+              createdAt: latest.createdAt,
+              floodDepth: latest.floodDepth,
+            });
+            setShowDisasterBanner(true);
+            if (Platform.OS !== "web") {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            }
+          }
+        }
+
+        lastDisasterIds.current = currentIds;
+        disasterInitialized.current = true;
+      }
+    } catch (e) {
+      console.error("Failed to fetch disaster reports:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDisasterReports();
+    const interval = setInterval(fetchDisasterReports, 120000);
+    return () => clearInterval(interval);
+  }, [fetchDisasterReports]);
 
   const invertedMessages = useMemo(
     () => [...messages].reverse(),
@@ -599,6 +738,17 @@ export default function ChatScreen() {
             setShowModal(true);
           }}
           onDismiss={() => setShowBanner(false)}
+        />
+      )}
+
+      {showDisasterBanner && disasterNotif && !showBanner && (
+        <DisasterNotifBanner
+          report={disasterNotif}
+          onPress={() => {
+            setShowDisasterBanner(false);
+            setShowDisasterMap(true);
+          }}
+          onDismiss={() => setShowDisasterBanner(false)}
         />
       )}
 
@@ -836,6 +986,67 @@ const notifStyles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_700Bold",
     color: "#F59E0B",
+  },
+  bannerSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: C.textSecondary,
+    marginTop: 1,
+  },
+});
+
+const disasterNotifStyles = StyleSheet.create({
+  banner: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 99,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  bannerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#1A2332",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    ...Platform.select({
+      web: {
+        boxShadow: "0 4px 20px rgba(59, 130, 246, 0.15)",
+      },
+      default: {
+        shadowColor: "#3B82F6",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 10,
+        elevation: 8,
+      },
+    }),
+  },
+  bannerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+  },
+  bannerInfo: {
+    flex: 1,
+  },
+  bannerTitle: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
   },
   bannerSub: {
     fontSize: 12,
