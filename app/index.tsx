@@ -38,7 +38,7 @@ function formatTime(date: Date): string {
 
 const WELCOME_MESSAGE: Message = {
   id: "welcome",
-  text: "Halo! Saya Garda Bencana, asisten darurat bencana Anda.\n\nSaya terhubung langsung ke data real-time BMKG untuk informasi gempa dan peringatan cuaca terkini.\n\nSilakan ketik pesan atau gunakan tombol aksi cepat di bawah.",
+  text: "Halo! Saya Garda Bencana, asisten darurat bencana Anda.\n\nSaya terhubung langsung ke data real-time BMKG dan dilengkapi AI untuk membantu Anda.\n\nSilakan ketik pesan atau gunakan tombol aksi cepat di bawah.",
   isUser: false,
   timestamp: new Date(),
 };
@@ -107,6 +107,7 @@ export default function ChatScreen() {
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  const conversationHistory = useRef<{ role: string; content: string }[]>([]);
 
   const isWeb = Platform.OS === "web";
   const isWideScreen = isWeb && windowWidth > MAX_MOBILE_WIDTH;
@@ -120,7 +121,10 @@ export default function ChatScreen() {
 
   const sendToApi = useCallback(async (text: string) => {
     try {
-      const res = await apiRequest("POST", "/api/chat", { message: text });
+      const res = await apiRequest("POST", "/api/chat", {
+        message: text,
+        history: conversationHistory.current,
+      });
       const data = await res.json();
       return data.reply as string;
     } catch (e) {
@@ -149,7 +153,12 @@ export default function ChatScreen() {
       setInputText("");
       setIsTyping(true);
 
+      conversationHistory.current.push({ role: "user", content: trimmed });
       const reply = await sendToApi(trimmed);
+      conversationHistory.current.push({ role: "assistant", content: reply });
+      if (conversationHistory.current.length > 20) {
+        conversationHistory.current = conversationHistory.current.slice(-20);
+      }
 
       const botMsg: Message = {
         id: generateId(),
@@ -322,7 +331,7 @@ export default function ChatScreen() {
           </View>
 
           <Text style={styles.disclaimer}>
-            Sumber data: BMKG (real-time)
+            Sumber data: BMKG | AI: Groq
           </Text>
         </View>
       </KeyboardAvoidingView>

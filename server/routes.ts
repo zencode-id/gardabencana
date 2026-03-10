@@ -3,6 +3,7 @@ import { createServer, type Server } from "node:http";
 
 const BMKG_BASE = "https://data.bmkg.go.id/DataMKG/TEWS";
 const BMKG_NOWCAST = "https://www.bmkg.go.id/alerts/nowcast/id";
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 interface BmkgGempa {
   Tanggal: string;
@@ -115,8 +116,115 @@ async function getWeatherWarnings(): Promise<string> {
   return result;
 }
 
-function getP3kGuide(): string {
-  return `Panduan Pertolongan Pertama (P3K):
+async function getAllBmkgContext(): Promise<string> {
+  const [latest, recent, felt, warnings] = await Promise.all([
+    getLatestEarthquake().catch(() => "Data gempa terbaru tidak tersedia."),
+    getRecentEarthquakes().catch(() => "Data gempa terkini tidak tersedia."),
+    getFeltEarthquakes().catch(() => "Data gempa dirasakan tidak tersedia."),
+    getWeatherWarnings().catch(() => "Data peringatan cuaca tidak tersedia."),
+  ]);
+  return `${latest}\n---\n${recent}\n---\n${felt}\n---\n${warnings}`;
+}
+
+const SYSTEM_PROMPT = `Kamu adalah Garda Bencana, asisten darurat bencana Indonesia yang bertugas memberikan informasi kebencanaan yang akurat dan membantu masyarakat dalam situasi darurat.
+
+Peran dan kemampuanmu:
+1. Memberikan informasi gempa bumi real-time dari BMKG
+2. Memberikan peringatan dini cuaca dari BMKG
+3. Memberikan panduan pertolongan pertama (P3K)
+4. Membantu mencari shelter/posko pengungsian
+5. Memberikan panduan evakuasi untuk berbagai jenis bencana (gempa, tsunami, banjir, kebakaran, longsor)
+6. Memberikan nomor darurat penting
+
+Aturan:
+- Selalu gunakan bahasa Indonesia yang jelas dan mudah dipahami
+- Prioritaskan keselamatan dalam setiap saran
+- Jika ada data BMKG yang tersedia, gunakan data tersebut untuk menjawab
+- Cantumkan sumber data dari BMKG jika menggunakan data resmi
+- Berikan instruksi yang ringkas dan jelas, terutama dalam situasi darurat
+- Untuk informasi shelter, berikan saran umum karena data shelter spesifik memerlukan koordinasi dengan BPBD setempat
+- Nomor darurat penting: 112 (Darurat Umum), 119 (Ambulans), 113 (Pemadam), 115 (SAR), BPBD: 177
+
+Berikut adalah data real-time dari BMKG yang bisa kamu gunakan untuk menjawab pertanyaan:
+`;
+
+async function chatWithGroq(
+  userMessage: string,
+  conversationHistory: { role: string; content: string }[],
+): Promise<string | null> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const bmkgData = await getAllBmkgContext();
+    const systemMessage = SYSTEM_PROMPT + bmkgData;
+
+    const messages = [
+      { role: "system", content: systemMessage },
+      ...conversationHistory.slice(-10),
+      { role: "user", content: userMessage },
+    ];
+
+    const res = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages,
+        temperature: 0.7,
+        max_tokens: 1024,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("Groq API error:", res.status, errText);
+      return null;
+    }
+
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch (e) {
+    console.error("Groq chat error:", e);
+    return null;
+  }
+}
+
+async function generateFallbackReply(message: string): Promise<string> {
+  const lower = message.toLowerCase();
+
+  if (lower.includes("gempa") || lower.includes("earthquake")) {
+    try {
+      const [latest, recent, felt] = await Promise.all([
+        getLatestEarthquake(),
+        getRecentEarthquakes(),
+        getFeltEarthquakes(),
+      ]);
+      if (lower.includes("dirasakan") || lower.includes("felt")) {
+        return felt + "\nSumber: BMKG (data real-time)";
+      }
+      if (lower.includes("terkini") || lower.includes("daftar") || lower.includes("list")) {
+        return recent + "\nSumber: BMKG (data real-time)";
+      }
+      return latest + "\n---\n\n" + recent + "\nSumber: BMKG (data real-time)";
+    } catch {
+      return "Maaf, tidak dapat mengambil data gempa dari BMKG saat ini. Silakan coba lagi nanti.\n\nUntuk info gempa terkini, kunjungi: https://www.bmkg.go.id/";
+    }
+  }
+
+  if (lower.includes("cuaca") || lower.includes("weather") || lower.includes("hujan") || lower.includes("peringatan")) {
+    try {
+      return await getWeatherWarnings();
+    } catch {
+      return "Maaf, tidak dapat mengambil data peringatan cuaca dari BMKG saat ini.";
+    }
+  }
+
+  if (lower.includes("p3k") || lower.includes("luka") || lower.includes("pertolongan") || lower.includes("first aid") || lower.includes("medis")) {
+    return `Panduan Pertolongan Pertama (P3K):
 
 Luka Ringan:
 1. Bersihkan luka dengan air mengalir
@@ -141,16 +249,12 @@ CPR (Resusitasi Jantung Paru):
 4. Tekan dada 30x, napas buatan 2x
 5. Ulangi hingga bantuan datang
 
-Nomor Darurat:
-- Ambulans: 119
-- Darurat Umum: 112
-- PMI: 021-7992325`;
-}
+Nomor Darurat: 119 (Ambulans) | 112 (Darurat Umum)`;
+  }
 
-function getShelterGuide(): string {
-  return `Panduan Mencari Shelter/Posko Pengungsian:
+  if (lower.includes("shelter") || lower.includes("posko") || lower.includes("evakuasi") || lower.includes("pengungsian") || lower.includes("mengungsi")) {
+    return `Panduan Mencari Shelter/Posko Pengungsian:
 
-Langkah-langkah:
 1. Hubungi BPBD setempat: 177
 2. Hubungi Darurat Umum: 112
 3. Cek informasi posko di RT/RW setempat
@@ -163,235 +267,25 @@ Lokasi umum shelter darurat:
 - Masjid / Gereja / Tempat Ibadah
 - Lapangan terbuka (untuk gempa)
 
-Barang yang harus dibawa:
-- Dokumen penting (KTP, KK, ijazah)
-- Obat-obatan pribadi
-- Makanan & air minum
-- Pakaian ganti
-- Senter & baterai cadangan
-- Charger HP
-
-Kontak Penting:
-- BPBD: 177
-- Basarnas/SAR: 115
-- Darurat: 112
-- Ambulans: 119`;
-}
-
-function getBanjirGuide(): string {
-  return `Panduan Menghadapi Banjir:
-
-Sebelum Banjir:
-1. Pantau peringatan cuaca BMKG
-2. Siapkan tas darurat
-3. Pindahkan barang berharga ke tempat tinggi
-4. Catat nomor darurat penting
-
-Saat Banjir:
-1. Matikan listrik jika air mulai naik
-2. Evakuasi ke tempat yang lebih tinggi
-3. Jangan berjalan di arus air yang deras
-4. Jauhi tiang listrik dan kabel
-5. Hubungi BPBD: 177 atau 112
-
-Setelah Banjir:
-- Bersihkan rumah dari lumpur
-- Periksa instalasi listrik sebelum menyalakan
-- Buang makanan yang terendam
-- Waspada penyakit pasca banjir
-
-Nomor Darurat: 112 | BPBD: 177`;
-}
-
-function getKebakaranGuide(): string {
-  return `Panduan Saat Kebakaran:
-
-Tindakan Segera:
-1. Segera keluar dari bangunan
-2. Merunduk jika ada asap tebal
-3. Jangan gunakan lift
-4. Tutup hidung dengan kain basah
-5. Jangan membuka pintu yang terasa panas
-6. Hubungi 113 (Pemadam Kebakaran)
-
-Jika Terjebak:
-- Tutup celah pintu dengan kain basah
-- Beri sinyal dari jendela
-- Tunggu bantuan pemadam
-- Jangan panik
-
-Pencegahan:
-- Periksa instalasi listrik secara berkala
-- Sediakan APAR (alat pemadam)
-- Jangan tinggalkan kompor menyala
-
-Nomor Darurat:
-- Pemadam: 113
-- Darurat: 112
-- Ambulans: 119`;
-}
-
-function getTsunamiGuide(): string {
-  return `Panduan Evakuasi Tsunami:
-
-Tanda-tanda Tsunami:
-- Gempa kuat di pesisir
-- Air laut surut drastis
-- Suara gemuruh dari laut
-
-Tindakan:
-1. Segera evakuasi ke dataran tinggi (>30 meter)
-2. Jauhi pantai dan sungai
-3. Jangan menunggu peringatan resmi jika merasakan gempa kuat
-4. Ikuti rambu evakuasi tsunami
-5. Jangan kembali sampai ada pemberitahuan aman
-
-Setelah Tsunami:
-- Tunggu pengumuman resmi BMKG
-- Waspadai gelombang susulan
-- Hindari bangunan yang rusak
-
-Kontak Penting:
-- BMKG: 021-6546315
-- Darurat: 112
-- SAR/Basarnas: 115`;
-}
-
-function getLongsorGuide(): string {
-  return `Panduan Menghadapi Tanah Longsor:
-
-Tanda-tanda Longsor:
-- Hujan deras berkepanjangan
-- Retakan di tanah/dinding
-- Air tanah keruh mendadak
-- Suara gemuruh dari lereng
-
-Tindakan:
-1. Segera evakuasi dari lereng
-2. Jauhi tebing dan jurang
-3. Hindari aliran sungai dekat lereng
-4. Hubungi BPBD: 177
-
-Pencegahan:
-- Jangan bangun rumah di lereng curam
-- Buat drainase yang baik
-- Tanam pohon di lereng
-- Pantau kondisi cuaca
-
-Nomor Darurat: 112 | BPBD: 177 | SAR: 115`;
-}
-
-async function generateSmartReply(message: string): Promise<string> {
-  const lower = message.toLowerCase();
-
-  if (lower.includes("gempa") || lower.includes("earthquake")) {
-    try {
-      const [latest, recent, felt] = await Promise.all([
-        getLatestEarthquake(),
-        getRecentEarthquakes(),
-        getFeltEarthquakes(),
-      ]);
-
-      if (lower.includes("dirasakan") || lower.includes("felt")) {
-        return felt + "\nSumber: BMKG (data real-time)";
-      }
-      if (lower.includes("terkini") || lower.includes("daftar") || lower.includes("list")) {
-        return recent + "\nSumber: BMKG (data real-time)";
-      }
-      return latest + "\n---\n\n" + recent + "\nSumber: BMKG (data real-time)";
-    } catch (e) {
-      return "Maaf, tidak dapat mengambil data gempa dari BMKG saat ini. Silakan coba lagi nanti.\n\nUntuk info gempa terkini, kunjungi: https://www.bmkg.go.id/";
-    }
-  }
-
-  if (lower.includes("cuaca") || lower.includes("weather") || lower.includes("hujan") || lower.includes("peringatan")) {
-    try {
-      return await getWeatherWarnings();
-    } catch (e) {
-      return "Maaf, tidak dapat mengambil data peringatan cuaca dari BMKG saat ini. Silakan coba lagi nanti.";
-    }
-  }
-
-  if (lower.includes("p3k") || lower.includes("luka") || lower.includes("pertolongan") || lower.includes("first aid") || lower.includes("medis")) {
-    return getP3kGuide();
-  }
-
-  if (lower.includes("shelter") || lower.includes("posko") || lower.includes("evakuasi") || lower.includes("pengungsian") || lower.includes("mengungsi")) {
-    return getShelterGuide();
-  }
-
-  if (lower.includes("banjir") || lower.includes("flood")) {
-    return getBanjirGuide();
-  }
-
-  if (lower.includes("kebakaran") || lower.includes("fire")) {
-    return getKebakaranGuide();
-  }
-
-  if (lower.includes("tsunami")) {
-    return getTsunamiGuide();
-  }
-
-  if (lower.includes("longsor") || lower.includes("landslide")) {
-    return getLongsorGuide();
-  }
-
-  if (lower.includes("halo") || lower.includes("hai") || lower.includes("hi") || lower.includes("hello") || lower.includes("selamat")) {
-    return `Halo! Saya Garda Bencana, siap membantu Anda dengan informasi kebencanaan.
-
-Saya bisa membantu dengan:
-- Info gempa terkini (data real-time BMKG)
-- Peringatan dini cuaca (BMKG)
-- Panduan P3K / pertolongan pertama
-- Lokasi shelter / posko pengungsian
-- Panduan banjir, kebakaran, tsunami, longsor
-
-Silakan ketik pertanyaan atau gunakan tombol aksi cepat di bawah.`;
+Kontak Penting: BPBD: 177 | SAR: 115 | Darurat: 112`;
   }
 
   if (lower.includes("nomor") || lower.includes("darurat") || lower.includes("emergency") || lower.includes("telepon") || lower.includes("hubungi")) {
     return `Nomor Darurat Penting Indonesia:
 
-- 112 : Darurat Umum (Polisi, Ambulans, Pemadam)
-- 119 : Ambulans / Gawat Darurat Medis
+- 112 : Darurat Umum
+- 119 : Ambulans
 - 113 : Pemadam Kebakaran
 - 115 : SAR / Basarnas
-- 177 : BPBD (Badan Penanggulangan Bencana)
+- 177 : BPBD
 - 110 : Polisi
-- 021-6546315 : BMKG
-
-Hotline Khusus:
-- PMI: 021-7992325
-- PLN: 123
-- Pertamina: 135
-
-Simpan nomor-nomor ini di kontak HP Anda untuk keadaan darurat.`;
+- 021-6546315 : BMKG`;
   }
 
-  try {
-    const [latest, warnings] = await Promise.all([
-      getLatestEarthquake().catch(() => ""),
-      getWeatherWarnings().catch(() => ""),
-    ]);
-
-    let reply = `Terima kasih atas pertanyaan Anda. Berikut informasi terkini:\n\n`;
-    if (latest) reply += latest + "\n";
-    if (warnings) reply += "---\n\n" + warnings + "\n";
-    reply += `\nAnda juga bisa bertanya tentang:
-- Info gempa (data real-time BMKG)
-- Peringatan cuaca
-- Panduan P3K
-- Shelter/posko pengungsian
-- Panduan banjir, kebakaran, tsunami, longsor
-- Nomor darurat
-
-Sumber data: BMKG`;
-    return reply;
-  } catch {
-    return `Saya Garda Bencana, siap membantu Anda.
+  return `Saya Garda Bencana, siap membantu Anda.
 
 Silakan tanyakan tentang:
-- Info gempa terkini
+- Info gempa terkini (data BMKG)
 - Peringatan cuaca
 - Panduan P3K
 - Cari shelter/posko
@@ -399,7 +293,6 @@ Silakan tanyakan tentang:
 - Nomor darurat
 
 Nomor Darurat: 112 (Umum) | 119 (Ambulans) | 113 (Pemadam) | 177 (BPBD)`;
-  }
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -441,13 +334,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/chat", async (req: Request, res: Response) => {
-    const { message } = req.body;
+    const { message, history } = req.body;
     if (!message || typeof message !== "string") {
       return res.status(400).json({ error: "Pesan tidak boleh kosong" });
     }
 
-    const reply = await generateSmartReply(message);
-    res.json({ reply });
+    const conversationHistory = Array.isArray(history) ? history : [];
+
+    const aiReply = await chatWithGroq(message, conversationHistory);
+    if (aiReply) {
+      return res.json({ reply: aiReply });
+    }
+
+    const fallbackReply = await generateFallbackReply(message);
+    res.json({ reply: fallbackReply });
   });
 
   const httpServer = createServer(app);

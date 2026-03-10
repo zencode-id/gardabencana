@@ -1,11 +1,12 @@
 # Garda Bencana - Emergency Assistant Chatbot
 
 ## Overview
-Garda Bencana is an Expo React Native web chatbot app for emergency/disaster assistance in Indonesia. Dark mode UI with real-time BMKG data integration for earthquakes and weather warnings.
+Garda Bencana is an Expo React Native web chatbot app for emergency/disaster assistance in Indonesia. Dark mode UI with real-time BMKG data integration for earthquakes and weather warnings, powered by Groq AI (Llama 3.3 70B) with keyword-based fallback.
 
 ## Architecture
 - **Frontend**: Expo Router (file-based routing), single-screen chat UI at `app/index.tsx`
 - **Backend**: Express server on port 5000 (landing page + API)
+- **AI**: Groq API (Llama 3.3 70B) with keyword-based fallback
 - **Data**: Real-time BMKG API integration (earthquakes, weather warnings)
 - **State**: Local state with useState (no persistence needed for chat)
 - **Styling**: React Native StyleSheet with custom dark theme in `constants/colors.ts`
@@ -31,7 +32,7 @@ Garda Bencana is an Expo React Native web chatbot app for emergency/disaster ass
 - `GET /api/bmkg/peringatan-cuaca` - Weather warnings (nowcast RSS)
 - `POST /api/chat` - Smart keyword-based chat with real BMKG data
 
-## Chat Features (keyword-based, no AI dependency)
+## Chat Features (Groq AI primary, keyword fallback)
 - Earthquake data: real-time from BMKG API
 - Weather warnings: real-time from BMKG nowcast RSS
 - P3K/first aid guides
