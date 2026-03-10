@@ -13,6 +13,7 @@ import {
   Modal,
   Animated,
   Share,
+  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
@@ -22,6 +23,7 @@ import { apiRequest, getApiUrl } from "@/lib/query-client";
 import Colors from "@/constants/colors";
 import ShelterFinder from "@/components/ShelterFinder";
 import DisasterMap from "@/components/DisasterMap";
+import ReportDisaster from "@/components/ReportDisaster";
 
 const C = Colors.dark;
 const MAX_MOBILE_WIDTH = 480;
@@ -494,6 +496,7 @@ export default function ChatScreen() {
   const [showModal, setShowModal] = useState(false);
   const [showShelterFinder, setShowShelterFinder] = useState(false);
   const [showDisasterMap, setShowDisasterMap] = useState(false);
+  const [showReportDisaster, setShowReportDisaster] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
   const [lastGempaId, setLastGempaId] = useState<string>("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -656,7 +659,7 @@ export default function ChatScreen() {
   );
 
   const handleQuickAction = useCallback(
-    (type: "gempa" | "p3k" | "shelter" | "bencana") => {
+    (type: "gempa" | "p3k" | "shelter" | "bencana" | "lapor") => {
       if (type === "shelter") {
         setShowShelterFinder(true);
         return;
@@ -665,11 +668,16 @@ export default function ChatScreen() {
         setShowDisasterMap(true);
         return;
       }
+      if (type === "lapor") {
+        setShowReportDisaster(true);
+        return;
+      }
       const labels = {
         gempa: "Berikan info gempa terbaru dari BMKG",
         p3k: "Berikan panduan pertolongan pertama (P3K) lengkap",
         shelter: "",
         bencana: "",
+        lapor: "",
       };
       sendMessage(labels[type]);
     },
@@ -776,7 +784,13 @@ export default function ChatScreen() {
             { paddingBottom: Math.max(bottomPadding, 8) },
           ]}
         >
-          <View style={styles.quickActions}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            style={styles.quickActions}
+            contentContainerStyle={styles.quickActionsContent}
+          >
             <Pressable
               style={({ pressed }) => [
                 styles.quickActionBtn,
@@ -844,7 +858,24 @@ export default function ChatScreen() {
               />
               <Text style={styles.quickActionLabel}>Peta Bencana</Text>
             </Pressable>
-          </View>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.quickActionBtn,
+                { opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] },
+              ]}
+              onPress={() => handleQuickAction("lapor")}
+              disabled={isTyping}
+              testID="quick-lapor"
+            >
+              <Ionicons
+                name="megaphone"
+                size={16}
+                color={C.quickActionText}
+              />
+              <Text style={styles.quickActionLabel}>Lapor</Text>
+            </Pressable>
+          </ScrollView>
 
           <View style={styles.inputRow}>
             <View style={styles.inputContainer}>
@@ -905,6 +936,11 @@ export default function ChatScreen() {
       <DisasterMap
         visible={showDisasterMap}
         onClose={() => setShowDisasterMap(false)}
+      />
+
+      <ReportDisaster
+        visible={showReportDisaster}
+        onClose={() => setShowReportDisaster(false)}
       />
     </View>
   );
@@ -1486,18 +1522,19 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   quickActions: {
-    flexDirection: "row",
-    gap: 8,
     marginBottom: 10,
   },
+  quickActionsContent: {
+    flexDirection: "row",
+    gap: 8,
+  },
   quickActionBtn: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
     paddingVertical: 7,
-    paddingHorizontal: 4,
+    paddingHorizontal: 10,
     borderRadius: 10,
     backgroundColor: C.quickAction,
     borderWidth: 1,

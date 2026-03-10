@@ -77,7 +77,15 @@ Garda Bencana is an Expo React Native web chatbot app for emergency/disaster ass
 - Shelter/evacuation guides
 - Disaster guides: banjir, kebakaran, tsunami, longsor
 - Emergency numbers
-- Quick action buttons: Info Gempa, Panduan P3K, Cari Shelter, Peta Bencana
+- Quick action buttons: Info Gempa, Panduan P3K, Cari Shelter, Peta Bencana, Lapor
+- Quick actions now in horizontal ScrollView for overflow
+
+## Report Disaster (Lapor Bencana)
+- Two-step flow: select disaster type -> select reporting channel
+- Disaster types: Banjir, Gempabumi, Kebakaran, Kabut Asap, Angin Kencang, Gunung Api
+- Reporting channels: WhatsApp, Telegram, X (Twitter), PetaBencana.id web
+- Opens official PetaBencana.id chatbot channels via Linking.openURL
+- Component: `components/ReportDisaster.tsx`
 
 ## BMKG Data Sources
 - Earthquakes: `https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json`, `gempaterkini.json`, `gempadirasakan.json`
