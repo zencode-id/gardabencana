@@ -427,11 +427,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const coords = f.geometry?.coordinates || [0, 0];
         const disasterLabels: Record<string, string> = {
           flood: "Banjir",
-          earthquake: "Gempa Bumi",
-          fire: "Kebakaran",
+          earthquake: "Gempabumi",
+          fire: "Kebakaran Hutan",
           haze: "Kabut Asap",
           wind: "Angin Kencang",
-          volcano: "Gunung Berapi",
+          volcano: "Gunung Api",
         };
         return {
           id: p.pkey,
