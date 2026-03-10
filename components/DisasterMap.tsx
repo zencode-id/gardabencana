@@ -90,6 +90,61 @@ const PROVINCES: Province[] = [
   { code: "ID-SU", name: "Sumatera Utara" },
 ];
 
+function getDisasterMapHtml(lat: number, lng: number, zoom: number): string {
+  return `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0F1419;overflow:hidden}
+#map{width:100%;height:100vh}
+.leaflet-container{background:#0F1419}
+.custom-popup .leaflet-popup-content-wrapper{background:#1A1F25;color:#E7E9EA;border:1px solid #2F3740;border-radius:12px;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
+.custom-popup .leaflet-popup-tip{background:#1A1F25;border:1px solid #2F3740}
+.popup-type{font-weight:700;font-size:12px;margin-bottom:4px}
+.popup-city{font-size:11px;color:#8B98A5;margin-bottom:4px}
+.popup-text{font-size:11px;color:#E7E9EA;max-width:200px}
+</style>
+</head><body>
+<div id="map"></div>
+<script>
+var map=L.map('map',{center:[${lat},${lng}],zoom:${zoom},zoomControl:false,attributionControl:false});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
+L.control.zoom({position:'topright'}).addTo(map);
+var colorMap={flood:'#3B82F6',earthquake:'#F59E0B',fire:'#EF4444',haze:'#8B5CF6',wind:'#06B6D4',volcano:'#F97316'};
+var iconMap={flood:'💧',earthquake:'🌍',fire:'🔥',haze:'🌫️',wind:'💨',volcano:'🌋'};
+var typeLabels={flood:'Banjir',earthquake:'Gempabumi',fire:'Kebakaran Hutan',haze:'Kabut Asap',wind:'Angin Kencang',volcano:'Gunung Api'};
+var markers=[];
+function clearMarkers(){markers.forEach(function(m){map.removeLayer(m)});markers=[]}
+function escapeHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function addReports(reports){
+clearMarkers();
+reports.forEach(function(r){
+var color=colorMap[r.type]||'#10B981';
+var emoji=iconMap[r.type]||'⚠️';
+var label=typeLabels[r.type]||escapeHtml(r.type);
+var icon=L.divIcon({html:'<div style="width:28px;height:28px;background:'+color+';border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:14px;">'+emoji+'</div>',iconSize:[28,28],iconAnchor:[14,28],popupAnchor:[0,-28],className:''});
+var h='<div class="popup-type" style="color:'+color+'">'+escapeHtml(label)+'</div>';
+h+='<div class="popup-city">'+escapeHtml(r.city||'Indonesia')+'</div>';
+if(r.text){var t=r.text.length>100?r.text.substring(0,100)+'...':r.text;h+='<div class="popup-text">'+escapeHtml(t)+'</div>'}
+var m=L.marker([r.lat,r.lng],{icon:icon}).addTo(map).bindPopup(h,{className:'custom-popup'});
+markers.push(m);
+});
+if(reports.length>0){var b=L.latLngBounds(reports.map(function(r){return[r.lat,r.lng]}));map.fitBounds(b,{padding:[30,30],maxZoom:10})}
+}
+window.addEventListener('message',function(e){
+try{var d=JSON.parse(e.data);
+if(d.type==='disaster-reports')addReports(d.reports);
+if(d.type==='focus')map.setView([d.lat,d.lng],14);
+}catch(err){}
+});
+if(window.parent!==window)window.parent.postMessage(JSON.stringify({type:'map-ready'}),'*');
+<\/script></body></html>`;
+}
+
 function getDisasterColor(type: string): string {
   const colors: Record<string, string> = {
     flood: "#3B82F6",
@@ -368,7 +423,7 @@ export default function DisasterMap({
 
   const centerLat = reports.length > 0 ? reports[0].lat : -2.5;
   const centerLng = reports.length > 0 ? reports[0].lng : 118;
-  const mapUrl = `${getApiUrl()}/disaster-map?lat=${centerLat}&lng=${centerLng}&zoom=5`;
+  const mapHtml = getDisasterMapHtml(centerLat, centerLng, 5);
 
   return (
     <Modal
@@ -443,7 +498,7 @@ export default function DisasterMap({
           {Platform.OS === "web" ? (
             <iframe
               ref={iframeRef as any}
-              src={mapUrl}
+              srcDoc={mapHtml}
               style={{ width: "100%", height: "100%", border: "none" }}
               title="Disaster Map"
             />

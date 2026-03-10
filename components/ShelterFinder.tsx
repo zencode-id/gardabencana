@@ -17,6 +17,52 @@ import Colors from "@/constants/colors";
 
 const C = Colors.dark;
 
+function getShelterMapHtml(lat: number, lng: number): string {
+  return `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0F1419;overflow:hidden}
+#map{width:100%;height:100vh}
+.leaflet-container{background:#0F1419}
+.custom-popup .leaflet-popup-content-wrapper{background:#1A1F25;color:#E7E9EA;border:1px solid #2F3740;border-radius:12px;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
+.custom-popup .leaflet-popup-tip{background:#1A1F25;border:1px solid #2F3740}
+.popup-name{font-weight:700;font-size:13px;margin-bottom:4px}
+.popup-info{font-size:11px;color:#8B98A5}
+.popup-cap{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;margin-top:4px}
+.cap-tersedia{background:#10B98122;color:#10B981}
+.cap-terbatas{background:#F59E0B22;color:#F59E0B}
+.cap-penuh{background:#EF444422;color:#EF4444}
+</style>
+</head><body>
+<div id="map"></div>
+<script>
+var lat=${lat},lng=${lng};
+var map=L.map('map',{center:[lat,lng],zoom:14,zoomControl:false,attributionControl:false});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
+L.control.zoom({position:'topright'}).addTo(map);
+var userIcon=L.divIcon({html:'<div style="width:16px;height:16px;background:#3B82F6;border:3px solid #fff;border-radius:50%;box-shadow:0 0 10px rgba(59,130,246,0.5);"></div>',iconSize:[16,16],iconAnchor:[8,8],className:''});
+var shelterIcon=L.divIcon({html:'<div style="width:32px;height:32px;background:#10B981;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);"><svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12 2L2 12h3v8h6v-6h2v6h6v-8h3L12 2z"/></svg></div>',iconSize:[32,32],iconAnchor:[16,32],popupAnchor:[0,-32],className:''});
+L.marker([lat,lng],{icon:userIcon}).addTo(map).bindPopup('<div class="popup-name">Lokasi Anda</div>');
+window.addEventListener('message',function(e){
+try{var d=JSON.parse(e.data);
+if(d.type==='shelters'){d.shelters.forEach(function(s){
+var capClass=s.capacity==='Kapasitas Tersedia'?'cap-tersedia':s.capacity==='Kapasitas Terbatas'?'cap-terbatas':'cap-penuh';
+var popup='<div class="popup-name">'+s.name+'</div><div class="popup-info">'+s.distance+' \\u2022 '+s.type+'</div><div class="popup-cap '+capClass+'">'+s.capacity+'</div>';
+L.marker([s.lat,s.lng],{icon:shelterIcon}).addTo(map).bindPopup(popup,{className:'custom-popup'});
+})}
+if(d.type==='focus')map.setView([d.lat,d.lng],16);
+if(d.type==='route'){var rl=L.polyline([[lat,lng],[d.lat,d.lng]],{color:'#10B981',weight:3,dashArray:'8, 8',opacity:0.8}).addTo(map);map.fitBounds(rl.getBounds(),{padding:[40,40]})}
+}catch(err){}
+});
+if(window.parent!==window)window.parent.postMessage(JSON.stringify({type:'map-ready'}),'*');
+<\/script></body></html>`;
+}
+
 interface Shelter {
   id: string;
   name: string;
@@ -311,7 +357,7 @@ export default function ShelterFinder({
       )
     : shelters;
 
-  const mapUrl = `${getApiUrl()}/shelter-map?lat=${userLat}&lng=${userLng}`;
+  const mapHtml = getShelterMapHtml(userLat, userLng);
 
   return (
     <Modal
@@ -353,7 +399,7 @@ export default function ShelterFinder({
           {Platform.OS === "web" ? (
             <iframe
               ref={iframeRef as any}
-              src={mapUrl}
+              srcDoc={mapHtml}
               style={{
                 width: "100%",
                 height: "100%",
