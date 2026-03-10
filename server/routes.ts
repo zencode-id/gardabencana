@@ -5,6 +5,7 @@ import path from "node:path";
 const BMKG_BASE = "https://data.bmkg.go.id/DataMKG/TEWS";
 const BMKG_NOWCAST = "https://www.bmkg.go.id/alerts/nowcast/id";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const PETABENCANA_API = "https://data.petabencana.id";
 
 interface BmkgGempa {
   Tanggal: string;
@@ -404,6 +405,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/disasters/reports", async (req: Request, res: Response) => {
+    try {
+      const disaster = req.query.disaster as string || "";
+      const admin = req.query.admin as string || "";
+      const timeperiod = req.query.timeperiod as string || "604800";
+
+      let url = `${PETABENCANA_API}/reports?geoformat=geojson&timeperiod=${timeperiod}`;
+      if (disaster) url += `&disaster=${disaster}`;
+      if (admin) url += `&admin=${admin}`;
+
+      const apiRes = await fetch(url, {
+        headers: { "User-Agent": "GardaBencana/1.0" },
+      });
+      if (!apiRes.ok) throw new Error(`PetaBencana API error: ${apiRes.status}`);
+      const data = await apiRes.json();
+
+      const features = data.result?.features || [];
+      const reports = features.map((f: any) => {
+        const p = f.properties;
+        const coords = f.geometry?.coordinates || [0, 0];
+        const disasterLabels: Record<string, string> = {
+          flood: "Banjir",
+          earthquake: "Gempa Bumi",
+          fire: "Kebakaran",
+          haze: "Kabut Asap",
+          wind: "Angin Kencang",
+          volcano: "Gunung Berapi",
+        };
+        return {
+          id: p.pkey,
+          type: p.disaster_type,
+          typeLabel: disasterLabels[p.disaster_type] || p.disaster_type,
+          text: p.text || "",
+          title: p.title || "",
+          imageUrl: p.image_url || null,
+          source: p.source,
+          status: p.status,
+          createdAt: p.created_at,
+          lng: coords[0],
+          lat: coords[1],
+          city: p.tags?.city || "",
+          regionCode: p.tags?.region_code || "",
+          floodDepth: p.report_data?.flood_depth || null,
+        };
+      });
+
+      res.json({ success: true, data: reports });
+    } catch (e) {
+      console.error("PetaBencana error:", e);
+      res.status(500).json({ success: false, error: "Gagal mengambil data bencana" });
+    }
+  });
+
   app.get("/api/shelters/nearby", (req: Request, res: Response) => {
     const lat = parseFloat(req.query.lat as string) || -6.2;
     const lng = parseFloat(req.query.lng as string) || 106.8;
@@ -413,6 +467,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/shelter-map", (_req: Request, res: Response) => {
     res.sendFile(path.join(process.cwd(), "server/templates/shelter-map.html"));
+  });
+
+  app.get("/disaster-map", (_req: Request, res: Response) => {
+    res.sendFile(path.join(process.cwd(), "server/templates/disaster-map.html"));
   });
 
   app.post("/api/chat", async (req: Request, res: Response) => {

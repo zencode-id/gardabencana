@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Disaster Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0F1419; overflow: hidden; }
+  #map { width: 100%; height: 100vh; }
+  .leaflet-container { background: #0F1419; }
+  .custom-popup .leaflet-popup-content-wrapper {
+    background: #1A1F25;
+    color: #E7E9EA;
+    border: 1px solid #2F3740;
+    border-radius: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  .custom-popup .leaflet-popup-tip { background: #1A1F25; border: 1px solid #2F3740; }
+  .popup-type { font-weight: 700; font-size: 12px; margin-bottom: 4px; }
+  .popup-city { font-size: 11px; color: #8B98A5; margin-bottom: 4px; }
+  .popup-text { font-size: 11px; color: #E7E9EA; max-width: 200px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+const params = new URLSearchParams(window.location.search);
+const lat = parseFloat(params.get('lat') || '-2.5');
+const lng = parseFloat(params.get('lng') || '118');
+const zoom = parseInt(params.get('zoom') || '5');
+
+const map = L.map('map', {
+  center: [lat, lng],
+  zoom: zoom,
+  zoomControl: false,
+  attributionControl: false
+});
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  maxZoom: 19
+}).addTo(map);
+
+L.control.zoom({ position: 'topright' }).addTo(map);
+
+const colorMap = {
+  flood: '#3B82F6',
+  earthquake: '#F59E0B',
+  fire: '#EF4444',
+  haze: '#8B5CF6',
+  wind: '#06B6D4',
+  volcano: '#F97316'
+};
+
+const iconMap = {
+  flood: '💧',
+  earthquake: '🌍',
+  fire: '🔥',
+  haze: '🌫️',
+  wind: '💨',
+  volcano: '🌋'
+};
+
+const typeLabels = {
+  flood: 'Banjir',
+  earthquake: 'Gempa',
+  fire: 'Kebakaran',
+  haze: 'Kabut Asap',
+  wind: 'Angin Kencang',
+  volcano: 'Gunung Berapi'
+};
+
+let markers = [];
+
+function clearMarkers() {
+  markers.forEach(function(m) { map.removeLayer(m); });
+  markers = [];
+}
+
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function addReports(reports) {
+  clearMarkers();
+  reports.forEach(function(r) {
+    var color = colorMap[r.type] || '#10B981';
+    var emoji = iconMap[r.type] || '⚠️';
+    var label = typeLabels[r.type] || escapeHtml(r.type);
+
+    var icon = L.divIcon({
+      html: '<div style="width:28px;height:28px;background:' + color + ';border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:14px;">' + emoji + '</div>',
+      iconSize: [28, 28],
+      iconAnchor: [14, 28],
+      popupAnchor: [0, -28],
+      className: ''
+    });
+
+    var popupHtml = '<div class="popup-type" style="color:' + color + '">' + escapeHtml(label) + '</div>';
+    popupHtml += '<div class="popup-city">' + escapeHtml(r.city || 'Indonesia') + '</div>';
+    if (r.text) {
+      var shortText = r.text.length > 100 ? r.text.substring(0, 100) + '...' : r.text;
+      popupHtml += '<div class="popup-text">' + escapeHtml(shortText) + '</div>';
+    }
+
+    var marker = L.marker([r.lat, r.lng], { icon: icon })
+      .addTo(map)
+      .bindPopup(popupHtml, { className: 'custom-popup' });
+    markers.push(marker);
+  });
+
+  if (reports.length > 0) {
+    var bounds = L.latLngBounds(reports.map(function(r) { return [r.lat, r.lng]; }));
+    map.fitBounds(bounds, { padding: [30, 30], maxZoom: 10 });
+  }
+}
+
+window.addEventListener('message', function(e) {
+  try {
+    var data = JSON.parse(e.data);
+    if (data.type === 'disaster-reports') {
+      addReports(data.reports);
+    }
+    if (data.type === 'focus') {
+      map.setView([data.lat, data.lng], 14);
+    }
+  } catch(err) {}
+});
+
+if (window.parent !== window) {
+  window.parent.postMessage(JSON.stringify({ type: 'map-ready' }), '*');
+}
+</script>
+</body>
+</html>

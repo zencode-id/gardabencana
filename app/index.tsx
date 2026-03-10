@@ -21,6 +21,7 @@ import * as Haptics from "expo-haptics";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import Colors from "@/constants/colors";
 import ShelterFinder from "@/components/ShelterFinder";
+import DisasterMap from "@/components/DisasterMap";
 
 const C = Colors.dark;
 const MAX_MOBILE_WIDTH = 480;
@@ -403,6 +404,7 @@ export default function ChatScreen() {
   const [latestGempa, setLatestGempa] = useState<GempaData | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showShelterFinder, setShowShelterFinder] = useState(false);
+  const [showDisasterMap, setShowDisasterMap] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
   const [lastGempaId, setLastGempaId] = useState<string>("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -515,15 +517,20 @@ export default function ChatScreen() {
   );
 
   const handleQuickAction = useCallback(
-    (type: "gempa" | "p3k" | "shelter") => {
+    (type: "gempa" | "p3k" | "shelter" | "bencana") => {
       if (type === "shelter") {
         setShowShelterFinder(true);
+        return;
+      }
+      if (type === "bencana") {
+        setShowDisasterMap(true);
         return;
       }
       const labels = {
         gempa: "Berikan info gempa terbaru dari BMKG",
         p3k: "Berikan panduan pertolongan pertama (P3K) lengkap",
         shelter: "",
+        bencana: "",
       };
       sendMessage(labels[type]);
     },
@@ -670,6 +677,23 @@ export default function ChatScreen() {
               />
               <Text style={styles.quickActionLabel}>Cari Shelter</Text>
             </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.quickActionBtn,
+                { opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] },
+              ]}
+              onPress={() => handleQuickAction("bencana")}
+              disabled={isTyping}
+              testID="quick-bencana"
+            >
+              <Ionicons
+                name="map"
+                size={16}
+                color={C.quickActionText}
+              />
+              <Text style={styles.quickActionLabel}>Peta Bencana</Text>
+            </Pressable>
           </View>
 
           <View style={styles.inputRow}>
@@ -726,6 +750,11 @@ export default function ChatScreen() {
       <ShelterFinder
         visible={showShelterFinder}
         onClose={() => setShowShelterFinder(false)}
+      />
+
+      <DisasterMap
+        visible={showDisasterMap}
+        onClose={() => setShowDisasterMap(false)}
       />
     </View>
   );
@@ -1255,16 +1284,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
+    gap: 4,
+    paddingVertical: 7,
+    paddingHorizontal: 4,
     borderRadius: 10,
     backgroundColor: C.quickAction,
     borderWidth: 1,
     borderColor: C.quickActionBorder,
   },
   quickActionLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "Inter_600SemiBold",
     color: C.quickActionText,
   },
