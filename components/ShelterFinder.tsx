@@ -278,6 +278,21 @@ export default function ShelterFinder({
     }
   }, []);
 
+  const sendToMap = useCallback((data: any) => {
+    const payload = JSON.stringify(data);
+    if (Platform.OS === "web" && iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(payload, "*");
+    } else if (Platform.OS !== "web" && webviewRef.current) {
+      const script = `
+        try {
+          window.dispatchEvent(new MessageEvent('message', { data: '${payload}' }));
+        } catch(e) {}
+        true;
+      `;
+      webviewRef.current.injectJavaScript(script);
+    }
+  }, []);
+
   const fetchShelters = useCallback(async () => {
     setLoading(true);
     try {
@@ -299,7 +314,7 @@ export default function ShelterFinder({
       console.error("Failed to fetch shelters:", e);
     }
     setLoading(false);
-  }, [userLat, userLng, mapLoaded]);
+  }, [userLat, userLng, mapLoaded, sendToMap]);
 
   useEffect(() => {
     if (visible) {
@@ -311,7 +326,7 @@ export default function ShelterFinder({
     if (visible) {
       fetchShelters();
     }
-  }, [visible, userLat, userLng]);
+  }, [visible, fetchShelters]);
 
   useEffect(() => {
     if (Platform.OS === "web" && visible) {
@@ -329,22 +344,7 @@ export default function ShelterFinder({
       window.addEventListener("message", handleMessage);
       return () => window.removeEventListener("message", handleMessage);
     }
-  }, [visible, shelters]);
-
-  const sendToMap = useCallback((data: any) => {
-    const payload = JSON.stringify(data);
-    if (Platform.OS === "web" && iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(payload, "*");
-    } else if (Platform.OS !== "web" && webviewRef.current) {
-      const script = `
-        try {
-          window.dispatchEvent(new MessageEvent('message', { data: '${payload}' }));
-        } catch(e) {}
-        true;
-      `;
-      webviewRef.current.injectJavaScript(script);
-    }
-  }, []);
+  }, [visible, shelters, sendToMap]);
 
   const handleRoute = useCallback((shelter: Shelter) => {
     if (Platform.OS === "web") {
@@ -397,12 +397,11 @@ export default function ShelterFinder({
         <View style={s.searchContainer}>
           <Ionicons name="search" size={18} color={C.textMuted} />
           <TextInput
-            style={s.searchInput}
+            style={[s.searchInput, Platform.OS === "web" && { outlineStyle: "none" as any }]}
             placeholder="Cari area atau shelter terdekat..."
             placeholderTextColor={C.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            {...(Platform.OS === "web" ? { style: [s.searchInput, { outlineStyle: "none" as any }] } : {})}
           />
         </View>
 
@@ -433,7 +432,7 @@ export default function ShelterFinder({
                       sendToMap({ type: "shelters", shelters });
                     }
                   }
-                } catch (e) {}
+                } catch {}
               }}
               javaScriptEnabled={true}
               scrollEnabled={false}

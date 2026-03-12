@@ -307,7 +307,7 @@ function NotificationBanner({
     }, 8000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [onDismiss, slideAnim]);
 
   const mag = parseFloat(gempa.Magnitude);
   const magColor = mag >= 7 ? "#EF4444" : mag >= 5 ? "#F59E0B" : "#10B981";
@@ -397,7 +397,7 @@ function DisasterNotifBanner({
     }, 10000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [onDismiss, slideAnim]);
 
   return (
     <Animated.View
@@ -509,26 +509,47 @@ export default function ChatScreen() {
   const lastDisasterIds = useRef<Set<string>>(new Set());
   const disasterInitialized = useRef(false);
 
-  // Deteksi Jaringan Offline/Online
+  // Deteksi Jaringan Offline/Online yang lebih robust
   useEffect(() => {
     async function checkNetwork() {
-      const state = await Network.getNetworkStateAsync();
-      console.log("Network State Initial:", state);
-      // Sederhanakan: Jika tidak connected atau internet tidak reachable (false), maka offline.
-      // Jika reachable null, kita asumsikan mengikuti isConnected.
-      const offline = state.isConnected === false || state.isInternetReachable === false;
-      setIsOffline(offline);
+      try {
+        const state = await Network.getNetworkStateAsync();
+        console.log("Network State Check:", state);
+        
+        // Robust logic: Offline jika tidak terkoneksi (Wi-Fi/Data mati) 
+        // ATAU Internet tidak reachable (Wi-Fi nyala tapi tidak ada paket data / DNS gagal)
+        const offline = state.isConnected === false || state.isInternetReachable === false;
+        
+        // Hanya update jika berubah untuk menghindari re-render yang tidak perlu
+        setIsOffline((prev) => {
+          if (prev !== offline) {
+            console.log(`Network status changed: ${prev} -> ${offline}`);
+            return offline;
+          }
+          return prev;
+        });
+      } catch (err) {
+        console.error("Failed to get network state:", err);
+      }
     }
 
+    // Cek awal
     checkNetwork();
 
+    // Listener untuk perubahan status jaringan
     const subscription = Network.addNetworkStateListener((state) => {
-      console.log("Network State Changed:", state);
+      console.log("Network State Listener:", state);
       const offline = state.isConnected === false || state.isInternetReachable === false;
       setIsOffline(offline);
     });
 
-    return () => subscription.remove();
+    // Fallback: Polling setiap 15 detik karena listener kadang telat di Android/Emulator
+    const interval = setInterval(checkNetwork, 15000);
+
+    return () => {
+      subscription.remove();
+      clearInterval(interval);
+    };
   }, []);
 
   const isWeb = Platform.OS === "web";
@@ -555,8 +576,13 @@ export default function ChatScreen() {
         }
         setLastGempaId(gempaId);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to fetch earthquake data:", e);
+      // Trigger Fail-to-Offline jika error network
+      if (e.message?.includes("Network request failed") || e.message?.includes("UnknownHostException")) {
+        console.log("Gempa fetch failed due to network. Forcing offline mode.");
+        setIsOffline(true);
+      }
     }
   }, [lastGempaId]);
 
@@ -564,7 +590,7 @@ export default function ChatScreen() {
     fetchLatestGempa(false);
     const interval = setInterval(() => fetchLatestGempa(true), POLL_INTERVAL);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchLatestGempa]);
 
   useEffect(() => {
     if (lastGempaId) {
@@ -614,8 +640,13 @@ export default function ChatScreen() {
         lastDisasterIds.current = currentIds;
         disasterInitialized.current = true;
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to fetch disaster reports:", e);
+      // Trigger Fail-to-Offline jika error network
+      if (e.message?.includes("Network request failed") || e.message?.includes("UnknownHostException")) {
+        console.log("Disaster fetch failed due to network. Forcing offline mode.");
+        setIsOffline(true);
+      }
     }
   }, []);
 
@@ -638,8 +669,13 @@ export default function ChatScreen() {
       });
       const data = await res.json();
       return data.reply as string;
-    } catch (e) {
+    } catch (e: any) {
       console.error("Chat API error:", e);
+      // Trigger Fail-to-Offline jika error network
+      if (e.message?.includes("Network request failed") || e.message?.includes("UnknownHostException")) {
+        setIsOffline(true);
+        return getOfflineResponse(text); // Langsung kirim balasan offline jika fetch gagal
+      }
       return "Maaf, terjadi kesalahan koneksi ke server. Silakan coba lagi.";
     }
   }, []);
@@ -717,7 +753,7 @@ export default function ChatScreen() {
       };
       sendMessage((labels as any)[type] || "");
     },
-    [sendMessage, isOffline],
+    [sendMessage],
   );
 
   const handleShelterFromModal = useCallback(() => {

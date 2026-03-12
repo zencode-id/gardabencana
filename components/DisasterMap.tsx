@@ -361,6 +361,21 @@ export default function DisasterMap({
 
   const activeProvinceName = PROVINCES.find(p => p.code === activeProvince)?.name || "Seluruh Indonesia";
 
+  const sendToMap = useCallback((data: any) => {
+    const payload = JSON.stringify(data);
+    if (Platform.OS === "web" && iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(payload, "*");
+    } else if (Platform.OS !== "web" && webviewRef.current) {
+      const script = `
+        try {
+          window.dispatchEvent(new MessageEvent('message', { data: '${payload}' }));
+        } catch(e) {}
+        true;
+      `;
+      webviewRef.current.injectJavaScript(script);
+    }
+  }, []);
+
   const fetchReports = useCallback(async (filter: DisasterFilter, admin: string) => {
     setLoading(true);
     try {
@@ -399,28 +414,13 @@ export default function DisasterMap({
       window.addEventListener("message", handleMessage);
       return () => window.removeEventListener("message", handleMessage);
     }
-  }, [visible]);
+  }, [visible, sendToMap]);
 
   useEffect(() => {
     if (mapReady && reports.length > 0 && Platform.OS === "web") {
       sendToMap({ type: "disaster-reports", reports });
     }
-  }, [mapReady, reports]);
-
-  const sendToMap = useCallback((data: any) => {
-    const payload = JSON.stringify(data);
-    if (Platform.OS === "web" && iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(payload, "*");
-    } else if (Platform.OS !== "web" && webviewRef.current) {
-      const script = `
-        try {
-          window.dispatchEvent(new MessageEvent('message', { data: '${payload}' }));
-        } catch(e) {}
-        true;
-      `;
-      webviewRef.current.injectJavaScript(script);
-    }
-  }, []);
+  }, [mapReady, reports, sendToMap]);
 
   const handleFilterChange = useCallback((filter: DisasterFilter) => {
     setActiveFilter(filter);
@@ -524,7 +524,7 @@ export default function DisasterMap({
                   if (data.type === "map-ready") {
                     setMapReady(true);
                   }
-                } catch (e) {}
+                } catch {}
               }}
               javaScriptEnabled={true}
               scrollEnabled={false}
