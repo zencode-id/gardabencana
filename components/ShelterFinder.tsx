@@ -11,6 +11,7 @@ import {
   TextInput,
   Linking,
 } from "react-native";
+import { WebView } from "react-native-webview";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { getApiUrl } from "@/lib/query-client";
 import Colors from "@/constants/colors";
@@ -256,6 +257,7 @@ export default function ShelterFinder({
   const [locationError, setLocationError] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const webviewRef = useRef<WebView | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
   const getUserLocation = useCallback(() => {
@@ -330,8 +332,17 @@ export default function ShelterFinder({
   }, [visible, shelters]);
 
   const sendToMap = useCallback((data: any) => {
+    const payload = JSON.stringify(data);
     if (Platform.OS === "web" && iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(JSON.stringify(data), "*");
+      iframeRef.current.contentWindow.postMessage(payload, "*");
+    } else if (Platform.OS !== "web" && webviewRef.current) {
+      const script = `
+        try {
+          window.dispatchEvent(new MessageEvent('message', { data: '${payload}' }));
+        } catch(e) {}
+        true;
+      `;
+      webviewRef.current.injectJavaScript(script);
     }
   }, []);
 
@@ -409,10 +420,24 @@ export default function ShelterFinder({
               title="Shelter Map"
             />
           ) : (
-            <View style={s.mapPlaceholder}>
-              <MaterialCommunityIcons name="map-marker-radius" size={48} color={C.accent} />
-              <Text style={s.mapPlaceholderText}>Peta tersedia di versi web</Text>
-            </View>
+             <WebView
+              ref={webviewRef}
+              source={{ html: mapHtml }}
+              style={{ flex: 1, backgroundColor: "transparent" }}
+              onMessage={(event) => {
+                try {
+                  const data = JSON.parse(event.nativeEvent.data);
+                  if (data.type === "map-ready") {
+                    setMapLoaded(true);
+                    if (shelters.length > 0) {
+                      sendToMap({ type: "shelters", shelters });
+                    }
+                  }
+                } catch (e) {}
+              }}
+              javaScriptEnabled={true}
+              scrollEnabled={false}
+            />
           )}
 
           {locationError && (

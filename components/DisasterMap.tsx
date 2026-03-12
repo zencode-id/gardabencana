@@ -12,6 +12,7 @@ import {
   TextInput,
   ScrollView,
 } from "react-native";
+import { WebView } from "react-native-webview";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { getApiUrl } from "@/lib/query-client";
 import Colors from "@/constants/colors";
@@ -354,6 +355,7 @@ export default function DisasterMap({
   const [showProvinceModal, setShowProvinceModal] = useState(false);
   const [provinceSearch, setProvinceSearch] = useState("");
   const [selectedReport, setSelectedReport] = useState<DisasterReport | null>(null);
+  const webviewRef = useRef<WebView | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
@@ -406,8 +408,17 @@ export default function DisasterMap({
   }, [mapReady, reports]);
 
   const sendToMap = useCallback((data: any) => {
+    const payload = JSON.stringify(data);
     if (Platform.OS === "web" && iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(JSON.stringify(data), "*");
+      iframeRef.current.contentWindow.postMessage(payload, "*");
+    } else if (Platform.OS !== "web" && webviewRef.current) {
+      const script = `
+        try {
+          window.dispatchEvent(new MessageEvent('message', { data: '${payload}' }));
+        } catch(e) {}
+        true;
+      `;
+      webviewRef.current.injectJavaScript(script);
     }
   }, []);
 
@@ -503,10 +514,21 @@ export default function DisasterMap({
               title="Disaster Map"
             />
           ) : (
-            <View style={s.mapPlaceholder}>
-              <MaterialCommunityIcons name="map-marker-radius" size={48} color={C.accent} />
-              <Text style={s.mapPlaceholderText}>Peta tersedia di versi web</Text>
-            </View>
+             <WebView
+              ref={webviewRef}
+              source={{ html: mapHtml }}
+              style={{ flex: 1, backgroundColor: "transparent" }}
+              onMessage={(event) => {
+                try {
+                  const data = JSON.parse(event.nativeEvent.data);
+                  if (data.type === "map-ready") {
+                    setMapReady(true);
+                  }
+                } catch (e) {}
+              }}
+              javaScriptEnabled={true}
+              scrollEnabled={false}
+            />
           )}
         </View>
 

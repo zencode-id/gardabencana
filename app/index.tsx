@@ -19,11 +19,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as Network from "expo-network";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import Colors from "@/constants/colors";
 import ShelterFinder from "@/components/ShelterFinder";
 import DisasterMap from "@/components/DisasterMap";
 import ReportDisaster from "@/components/ReportDisaster";
+import { getOfflineResponse } from "@/constants/offline-kb";
 
 const C = Colors.dark;
 const MAX_MOBILE_WIDTH = 480;
@@ -503,8 +505,25 @@ export default function ChatScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [disasterNotif, setDisasterNotif] = useState<DisasterNotif | null>(null);
   const [showDisasterBanner, setShowDisasterBanner] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
   const lastDisasterIds = useRef<Set<string>>(new Set());
   const disasterInitialized = useRef(false);
+
+  // Deteksi Jaringan Offline/Online
+  useEffect(() => {
+    async function checkNetwork() {
+      const state = await Network.getNetworkStateAsync();
+      setIsOffline(!state.isConnected || !state.isInternetReachable);
+    }
+
+    checkNetwork();
+
+    const subscription = Network.addNetworkStateListener((state) => {
+      setIsOffline(!state.isConnected || !state.isInternetReachable);
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   const isWeb = Platform.OS === "web";
   const isWideScreen = isWeb && windowWidth > MAX_MOBILE_WIDTH;
@@ -640,7 +659,16 @@ export default function ChatScreen() {
       setIsTyping(true);
 
       conversationHistory.current.push({ role: "user", content: trimmed });
-      const reply = await sendToApi(trimmed);
+      
+      let reply = "";
+      if (isOffline) {
+        // Simulasi delay sedikit untuk feel "berpikir" meski offline
+        await new Promise(resolve => setTimeout(resolve, 600));
+        reply = getOfflineResponse(trimmed);
+      } else {
+        reply = await sendToApi(trimmed);
+      }
+
       conversationHistory.current.push({ role: "assistant", content: reply });
       if (conversationHistory.current.length > 20) {
         conversationHistory.current = conversationHistory.current.slice(-20);
@@ -675,13 +703,15 @@ export default function ChatScreen() {
       const labels = {
         gempa: "Berikan info gempa terbaru dari BMKG",
         p3k: "Berikan panduan pertolongan pertama (P3K) lengkap",
+        banjir: "Bagaimana rute evakuasi banjir di Pasuruan?",
+        angin: "Apa panduan keselamatan saat ada angin puting beliung?",
         shelter: "",
         bencana: "",
         lapor: "",
       };
-      sendMessage(labels[type]);
+      sendMessage((labels as any)[type] || "");
     },
-    [sendMessage],
+    [sendMessage, isOffline],
   );
 
   const handleShelterFromModal = useCallback(() => {
@@ -710,30 +740,36 @@ export default function ChatScreen() {
           <View>
             <Text style={styles.headerTitle}>Garda Bencana</Text>
             <View style={styles.statusRow}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusText}>Online - BMKG Live</Text>
+              <View style={[styles.statusDot, isOffline && { backgroundColor: "#EF4444" }]} />
+              <Text style={[styles.statusText, isOffline && { color: "#EF4444" }]}>
+                {isOffline ? "Mode Darurat (Offline)" : "Online - BMKG Live"}
+              </Text>
             </View>
           </View>
         </View>
         <View style={styles.headerRight}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.gempaHeaderBtn,
-              { opacity: pressed ? 0.7 : 1 },
-            ]}
-            onPress={() => {
-              handleRefreshGempa();
-              setShowModal(true);
-            }}
-            testID="gempa-notif-btn"
-          >
-            <MaterialCommunityIcons name="earth" size={18} color={C.accent} />
-            {latestGempa && (
-              <View style={styles.gempaDot} />
-            )}
-          </Pressable>
-          <View style={styles.bmkgBadge}>
-            <Text style={styles.bmkgBadgeText}>BMKG</Text>
+          {!isOffline && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.gempaHeaderBtn,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+              onPress={() => {
+                handleRefreshGempa();
+                setShowModal(true);
+              }}
+              testID="gempa-notif-btn"
+            >
+              <MaterialCommunityIcons name="earth" size={18} color={C.accent} />
+              {latestGempa && (
+                <View style={styles.gempaDot} />
+              )}
+            </Pressable>
+          )}
+          <View style={[styles.bmkgBadge, isOffline && { backgroundColor: "#EF444422", borderColor: "#EF444444" }]}>
+            <Text style={[styles.bmkgBadgeText, isOffline && { color: "#EF4444" }]}>
+              {isOffline ? "LOCAL" : "BMKG"}
+            </Text>
           </View>
         </View>
       </View>
@@ -824,6 +860,34 @@ export default function ChatScreen() {
               />
               <Text style={styles.quickActionLabel}>Panduan P3K</Text>
             </Pressable>
+
+            {isOffline && (
+              <>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.quickActionBtn,
+                    { backgroundColor: "#3B82F622", borderColor: "#3B82F644", opacity: pressed ? 0.7 : 1 },
+                  ]}
+                  onPress={() => (handleQuickAction as any)("banjir")}
+                  disabled={isTyping}
+                >
+                  <MaterialCommunityIcons name="water" size={16} color="#3B82F6" />
+                  <Text style={[styles.quickActionLabel, { color: "#3B82F6" }]}>Banjir Pasuruan</Text>
+                </Pressable>
+
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.quickActionBtn,
+                    { backgroundColor: "#EF444422", borderColor: "#EF444444", opacity: pressed ? 0.7 : 1 },
+                  ]}
+                  onPress={() => (handleQuickAction as any)("angin")}
+                  disabled={isTyping}
+                >
+                  <MaterialCommunityIcons name="weather-tornado" size={16} color="#EF4444" />
+                  <Text style={[styles.quickActionLabel, { color: "#EF4444" }]}>Puting Beliung</Text>
+                </Pressable>
+              </>
+            )}
 
             <Pressable
               style={({ pressed }) => [
