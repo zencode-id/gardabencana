@@ -513,13 +513,19 @@ export default function ChatScreen() {
   useEffect(() => {
     async function checkNetwork() {
       const state = await Network.getNetworkStateAsync();
-      setIsOffline(!state.isConnected || !state.isInternetReachable);
+      console.log("Network State Initial:", state);
+      // Sederhanakan: Jika tidak connected atau internet tidak reachable (false), maka offline.
+      // Jika reachable null, kita asumsikan mengikuti isConnected.
+      const offline = state.isConnected === false || state.isInternetReachable === false;
+      setIsOffline(offline);
     }
 
     checkNetwork();
 
     const subscription = Network.addNetworkStateListener((state) => {
-      setIsOffline(!state.isConnected || !state.isInternetReachable);
+      console.log("Network State Changed:", state);
+      const offline = state.isConnected === false || state.isInternetReachable === false;
+      setIsOffline(offline);
     });
 
     return () => subscription.remove();
@@ -683,7 +689,7 @@ export default function ChatScreen() {
       setMessages((prev) => [...prev, botMsg]);
       setIsTyping(false);
     },
-    [isTyping, sendToApi],
+    [isTyping, sendToApi, isOffline],
   );
 
   const handleQuickAction = useCallback(
