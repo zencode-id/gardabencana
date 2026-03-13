@@ -1,8 +1,10 @@
 // ─── Shared helpers for all Vercel API functions ────────────────────────────
+import { DATA_PASURUAN } from "./data-pasuruan";
 
 export const BMKG_BASE = "https://data.bmkg.go.id/DataMKG/TEWS";
 export const BMKG_NOWCAST = "https://www.bmkg.go.id/alerts/nowcast/id";
 export const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+export const GROQ_AUDIO_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
 export const PETABENCANA_API = "https://data.petabencana.id";
 
 export interface NowcastItem {
@@ -153,6 +155,9 @@ Aturan:
 - Untuk informasi shelter, berikan saran umum karena data shelter spesifik memerlukan koordinasi dengan BPBD setempat
 - Nomor darurat penting: 112 (Darurat Umum), 119 (Ambulans), 113 (Pemadam), 115 (SAR), BPBD: 177
 
+Berikut adalah Basis Pengetahuan khusus untuk wilayah Pasuruan:
+${DATA_PASURUAN}
+
 Berikut adalah data real-time dari BMKG yang bisa kamu gunakan untuk menjawab pertanyaan:
 `;
 
@@ -197,6 +202,40 @@ export async function chatWithGroq(
     return data.choices?.[0]?.message?.content || null;
   } catch (e) {
     console.error("Groq chat error:", e);
+    return null;
+  }
+}
+
+export async function transcribeAudio(fileBuffer: Uint8Array | Buffer): Promise<string | null> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const formData = new FormData();
+    const blob = new Blob([new Uint8Array(fileBuffer)], { type: "audio/m4a" });
+    
+    formData.append("file", blob, "recording.m4a");
+    formData.append("model", "whisper-large-v3");
+    formData.append("language", "id");
+
+    const res = await fetch(GROQ_AUDIO_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("Groq Whisper error:", res.status, errText);
+      return null;
+    }
+
+    const data = await res.json();
+    return data.text || null;
+  } catch (e) {
+    console.error("Transcription error:", e);
     return null;
   }
 }
@@ -315,6 +354,21 @@ Kontak Penting: BPBD: 177 | SAR: 115 | Darurat: 112`;
 - 177 : BPBD
 - 110 : Polisi
 - 021-6546315 : BMKG`;
+  }
+
+  if (
+    lower.includes("pasuruan") ||
+    lower.includes("kraton") ||
+    lower.includes("rejoso") ||
+    lower.includes("winongan") ||
+    lower.includes("bangil") ||
+    lower.includes("purwodadi") ||
+    lower.includes("tambakrejo") ||
+    lower.includes("kedunglarangan") ||
+    lower.includes("welang") ||
+    lower.includes("pantura")
+  ) {
+    return DATA_PASURUAN;
   }
 
   return `Saya Garda Bencana, siap membantu Anda.

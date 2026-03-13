@@ -1,4 +1,3 @@
-import { fetch } from "expo/fetch";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 /**
@@ -32,15 +31,23 @@ async function throwIfResNotOk(res: Response) {
 export async function apiRequest(
   method: string,
   route: string,
-  data?: unknown | undefined,
+  data?: unknown | FormData,
+  options?: { headers?: Record<string, string> },
 ): Promise<Response> {
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
 
+  const isFormData = data instanceof FormData;
+  const headers: Record<string, string> = { ...options?.headers };
+
+  if (data && !isFormData && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const res = await fetch(url.toString(), {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
+    headers,
+    body: isFormData ? (data as any) : data ? JSON.stringify(data) : undefined,
   });
 
   await throwIfResNotOk(res);

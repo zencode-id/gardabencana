@@ -1,0 +1,217 @@
+Siap, laksanakan. Sebagai representasi dari BPPD (Badan Penanggulangan Bencana Daerah) Kabupaten Pasuruan, berikut adalah laporan komprehensif mengenai pemetaan masalah, analisis hulu-hilir, serta arahan solusi strategis untuk mengatasi banjir di wilayah-wilayah kritis tersebut.
+
+---
+
+## **Analisis Situasi & Karakteristik Wilayah**
+
+Kabupaten Pasuruan memiliki topografi yang unik di mana wilayah selatan (Pegunungan Bromo-Arjuno) merupakan daerah tangkapan air (*catchment area*), sedangkan wilayah utara merupakan dataran rendah yang berbatasan langsung dengan Selat Madura.
+
+### **Pemetaan Sungai Utama & Titik Rawan**
+
+1. **Sungai Welang:** Berpengaruh besar pada wilayah **Kraton**. Debit air dari hulu (Prigen/Purwodadi) yang tinggi sering meluap karena penyempitan di area muara.
+2. **Sungai Rejoso:** Menjadi momok utama bagi wilayah **Rejoso** dan **Winongan**. Sungai ini memiliki banyak anak sungai yang berkelok dan mengalami sedimentasi parah.
+3. **Sungai Kedunglarangan:** Faktor utama banjir di wilayah **Bangil**.
+
+---
+
+## **Pemetaan Solusi Banjir per Wilayah**
+
+| Wilayah | Karakteristik Banjir | Solusi Teknis & Struktural |
+| --- | --- | --- |
+| **Purwodadi** | Banjir Bandang & Kiriman | **Hulu:** Masifkan reboisasi, pembuatan cekdam (*check dam*), dan sumur retensi untuk menahan laju air ke bawah. |
+| **Winongan** | Luapan Sungai Rejoso | Normalisasi sungai secara berkala dan perbaikan tanggul yang kritis di titik pemukiman padat. |
+| **Rejoso** | Banjir Genangan (Lama) | Pembangunan kolam retensi dan optimalisasi pompa pembuangan menuju laut saat pasang. |
+| **Kraton** | Banjir Rob + Luapan Sungai | Peninggian tanggul Sungai Welang dan pengadaan *Mobile Pump* untuk membuang air saat air laut pasang. |
+| **Bangil** | Luapan Sungai & Drainase | Pembersihan sedimentasi di Sungai Kedunglarangan dan penataan drainase perkotaan yang terintegrasi. |
+
+---
+
+## **Arahan Strategis & Solusi Jangka Panjang**
+
+Berdasarkan instruksi Bupati, kita tidak bisa hanya mengandalkan solusi darurat. Diperlukan pendekatan **"Integrated Water Resources Management"**:
+
+### **1. Penguatan Mitigasi Non-Struktural**
+
+* **Early Warning System (EWS):** Pemasangan sensor ketinggian air di hulu (Purwodadi/Tutur) yang terkoneksi langsung ke pusat data BPPD dan perangkat desa di hilir (Kraton/Rejoso).
+* **Destana (Desa Tangguh Bencana):** Pembentukan relawan di tiap kecamatan untuk evakuasi mandiri sebelum air mencapai pemukiman.
+
+### **2. Rekayasa Infrastruktur (Struktural)**
+
+* **Normalisasi & Sodetan:** Melakukan pengerukan sedimentasi (pendangkalan) secara rutin setiap musim kemarau. Jika memungkinkan, pembuatan sodetan untuk membagi beban debit sungai.
+* **Pembangunan Pintu Air & Pompa:** Di wilayah hilir seperti Kraton dan Bangil, pintu air otomatis sangat krusial untuk mencegah *backwater* (air laut masuk ke daratan).
+
+### **3. Konservasi Area Hulu**
+
+* Menghentikan alih fungsi lahan di wilayah selatan (Purwodadi dsk). Air harus meresap ke tanah, bukan langsung lari ke sungai (*run-off*).
+
+---
+
+## **SOP Arahan Saat Terjadi Banjir (Tanggap Darurat)**
+
+1. **Status Siaga:** Jika curah hujan di hulu melebihi 100mm/hari, tim TRC (Tim Reaksi Cepat) segera siaga di titik rawan.
+2. **Evakuasi Prioritas:** Fokus pada kelompok rentan (lansia, anak-anak, disabilitas) di wilayah Rejoso dan Kraton yang sering mengalami genangan tinggi.
+3. **Logistik & Kesehatan:** Memastikan dapur umum dan posko kesehatan berdiri dalam waktu kurang dari 6 jam di titik aman (balai desa/kecamatan).
+4. **Komunikasi Terpadu:** Seluruh informasi ketinggian air disebarkan melalui radio komunitas dan grup koordinasi relawan untuk menghindari kepanikan/hoaks.
+
+> **Catatan:** Solusi ini memerlukan koordinasi lintas sektoral antara Dinas PU Sumber Daya Air, Dinas Lingkungan Hidup, dan dukungan anggaran dari Pemerintah Pusat melalui BBWS (Balai Besar Wilayah Sungai).
+
+Apakah Bapak Bupati ingin saya mendetailkan rencana anggaran biaya (RAB) untuk pengadaan sensor EWS di wilayah hulu tersebut?
+
+Berikut adalah titik-titik kritis yang sering terputus dan arahan jalur alternatifnya:
+
+### **1. Titik Putus: Jalur Pantura Kraton (S. Welang)**
+
+Ini adalah titik paling vital yang sering lumpuh total akibat luapan Sungai Welang (terutama di Desa Tambakrejo).
+
+* **Kondisi:** Air bisa mencapai 1 meter, menutup akses utama Surabaya–Banyuwangi.
+* **Solusi Jalur Aman:**
+* **Kendaraan Roda 4 atau Lebih:** Wajib masuk **Tol Gempol–Pasuruan (Gempas)** melalui *Exit/Entrance* Tol Rembang atau Tol Pasuruan.
+* **Kendaraan Roda 2:** Jangan memaksakan melintas. Jalur aman dialihkan lewat **Jalan Raya Kejayan** menuju arah Wonorejo/Purwosari (jalur malang) atau memutar via Rembang – Bangil (jika sisi Bangil aman).
+
+
+
+### **2. Titik Putus: Jalur Pantura Rejoso (S. Rejoso)**
+
+Titik ini sering terputus di depan PT CJI atau Desa Arjosari akibat luapan Sungai Rejoso.
+
+* **Kondisi:** Genangan tinggi menyebabkan mesin kendaraan mati dan kemacetan panjang hingga ke arah Probolinggo.
+* **Solusi Jalur Aman:**
+* **Dari Arah Timur (Probolinggo):** Kendaraan diarahkan masuk melalui **Simpang 3 Semambung (Nguling)** menuju **Exit Tol Grati**.
+* **Dari Arah Barat (Pasuruan Kota):** Kendaraan dialihkan dari **Simpang 3 Blandongan** ke arah selatan menuju **Gerbang Tol Sutojayan (Kebonagung)** atau Tol Kejayan.
+
+
+
+### **3. Titik Putus: Jalur Winongan & Purwodadi**
+
+Wilayah ini rawan banjir bandang atau air deras yang melintasi jalan raya.
+
+* **Kondisi:** Jalan di wilayah Winongan (Desa Prodo/Bandaran) sering terisolasi air deras.
+* **Solusi Jalur Aman:**
+* Gunakan jalur alternatif desa yang memiliki elevasi lebih tinggi (biasanya ke arah perbukitan/selatan).
+* Hindari jembatan-jembatan kecil saat debit air terlihat setinggi gelagar jembatan. Untuk Purwodadi, jika jalan utama terdampak longsor/banjir, arus dialihkan ke jalur **Purwosari–Pandaan**.
+
+
+
+---
+
+### **Peta Arahan Strategis (Ringkasan untuk Petugas di Lapangan):**
+
+| Wilayah Terputus | Jalur Pengalihan Utama | Status Keamanan |
+| --- | --- | --- |
+| **Kraton (Pantura)** | Tol Gempas (Utama) / Jalur Kejayan (R2) | **Prioritas Tinggi** |
+| **Rejoso (Pantura)** | Tol Grati / Tol Sutojayan | **Rawan Macet** |
+| **Bangil (Kedunglarangan)** | Jalur Lingkar Selatan (JLS) Bangil | **Siaga** |
+| **Winongan** | Jalur Perbukitan Selatan | **Waspada Arus Deras** |
+
+### **Arahan untuk Warga & Petugas:**
+
+1. **Patuhi Marka Portabel:** Kami akan memasang rambu darurat di simpang-simpang besar (Blandongan, Semambung, dan Bangil).
+2. **Pantau Shelter:** Kami telah mengaktifkan shelter bencana di 3 kecamatan utama. Jika jalan di depan rumah Bapak/Ibu sudah terputus arus deras, segera menuju titik evakuasi di **Masjid, Sekolah, atau Balai Desa** yang telah kami petakan elevasinya lebih tinggi.
+3. **Jangan Menerobos:** Sebagian besar motor mogok karena nekat menerobos di Kraton/Rejoso. Lebih baik memutar 15-20 menit via Tol/Kejayan daripada terjebak banjir.
+
+Kami terus berkoordinasi dengan Satlantas Polres Pasuruan untuk rekayasa lalu lintas *real-time*. Mohon instruksi lebih lanjut, Bapak Bupati.
+
+Berikut adalah **Peta Prosedur Pertolongan Pertama** yang harus dijalankan di lapangan:
+
+---
+
+## **1. Fase Penyelamatan (Life Saving)**
+
+Ini adalah tindakan instan saat air mulai naik dengan debit deras (terutama di wilayah hilir sungai besar).
+
+* **Evakuasi Prioritas (Kelompok Rentan):** Relawan wajib mendahulukan lansia, ibu hamil, anak-anak, dan disabilitas. Gunakan perahu karet untuk menyisir gang-gang sempit di Rejoso dan Bangil.
+* **Penanganan Hipotermia:** Korban yang terendam air dalam waktu lama berisiko mengalami penurunan suhu tubuh.
+* **Tindakan:** Segera ganti pakaian basah dengan baju kering/selimut dan berikan minuman hangat di posko pengungsian.
+
+
+* **Luka Terbuka & Infeksi:** Banjir sering membawa material tajam atau sengatan hewan.
+* **Tindakan:** Bersihkan luka dengan air mengalir/cairan antiseptik dan balut sementara untuk mencegah infeksi bakteri *Leptospirosis* (dari kencing tikus).
+
+
+
+---
+
+## **2. Peta Koordinasi Teknis di Lapangan**
+
+| Peran | Tindakan Pertolongan Pertama | Lokasi Fokus |
+| --- | --- | --- |
+| **Relawan Lapangan** | Evakuasi warga, pemberian pelampung, dan pengamanan jalur evakuasi dari arus deras. | Pemukiman padat (Tambakrejo, Rejoso Lor, Winongan). |
+| **Tim Medis BPBD** | Skrining kesehatan cepat, penanganan trauma fisik (patah tulang/luka), dan pemberian obat dasar. | Posko Pengungsian Utama (Balai Desa/Kecamatan). |
+| **Tim Logistik** | Distribusi air bersih (sangat krusial) dan makanan siap saji dalam 6 jam pertama. | Dapur Umum & Shelter Darurat. |
+
+---
+
+## **3. Penanganan Kondisi Khusus (Pasuruan Spesifik)**
+
+### **A. Sengatan Listrik**
+
+Banjir di wilayah perkotaan seperti Bangil berisiko tinggi terhadap korsleting.
+
+* **Arahan:** Relawan dilarang masuk ke air sebelum memastikan PLN telah memutus aliran listrik di gardu wilayah terdampak. Jika ada korban tersengat, gunakan benda non-konduktor (kayu/plastik) untuk menjauhkan korban dari sumber arus.
+
+### **B. Gigitan Hewan (Ular/Serangga)**
+
+Arus deras sungai sering membawa ular keluar dari sarangnya.
+
+* **Arahan:** Relawan harus dibekali *SABU* (Serum Anti Bisa Ular) di posko kesehatan utama. Jika digigit, lakukan imobilisasi (korban tidak boleh banyak bergerak) agar racun tidak cepat menyebar ke jantung.
+
+---
+
+## **4. Manajemen Psikososial (Trauma Healing)**
+
+Bagi warga yang kehilangan harta benda atau rumahnya rusak diterjang debit air di Purwodadi, pertolongan pertama bukan hanya fisik.
+
+* **Tindakan:** Pendampingan psikologis awal (mendengarkan keluhan warga) untuk mencegah kepanikan massal di lokasi pengungsian.
+
+---
+
+## **Instruksi untuk Relawan di Titik Jalan Terputus:**
+
+1. **Penyekatan:** Pasang barikade di titik jalan yang arusnya terlalu deras (seperti di Kraton). Jangan biarkan warga nekat melintas meskipun air terlihat dangkal, karena kekuatan arus bawah seringkali tidak terprediksi.
+2. **Pemandu Jalur:** Tempatkan minimal 2 relawan di setiap persimpangan jalur alternatif (via Tol atau Kejayan) untuk memandu pengendara yang bingung.
+
+**Rencana Tindak Lanjut:**
+Apakah Bapak Bupati ingin saya menginstruksikan pengadaan **Logistik Tambahan (Selimut & Obat-obatan)** untuk disiagakan di Kecamatan Rejoso dan Winongan sore ini juga?
+
+Berdasarkan pemetaan kerawanan di wilayah **Bangil, Kraton, Rejoso, Winongan, dan Purwodadi**, berikut adalah strategi dan pembagian titik pengungsian yang aman dari jangkauan debit air sungai:
+
+### **1. Peta Lokasi Shelter Utama (Titik Aman)**
+
+| Wilayah | Titik Shelter Pengungsian | Karakteristik Lokasi |
+| --- | --- | --- |
+| **Kraton** | Balai Desa Sidogiri, Masjid Kraton, dan Gedung Sekolah yang memiliki lantai 2. | Dipilih yang memiliki elevasi lebih tinggi dari luapan S. Welang. |
+| **Rejoso** | Kantor Kecamatan Rejoso dan kompleks perumahan yang tidak terdampak (area tinggi). | Mengingat Rejoso sering tergenang lama, titik ini harus memiliki akses logistik yang mudah. |
+| **Winongan** | Balai Desa Winongan Lor dan area sekitar pemandian (yang aman dari arus sungai). | Fokus pada evakuasi warga dari bantaran S. Rejoso. |
+| **Bangil** | Gedung Serbaguna (GSA), Alun-alun Bangil (tenda darurat), dan bangunan sekolah tinggi. | Pusat koordinasi logistik utama wilayah barat. |
+| **Purwodadi** | Balai Desa Purwodadi dan gedung pertemuan yang jauh dari lereng rawan longsor. | Fokus pada perlindungan warga dari banjir bandang. |
+
+---
+
+### **2. Standar Fasilitas Shelter (Instruksi BPBD)**
+
+Setiap shelter yang dibuka harus memenuhi standar minimal untuk menjaga martabat dan kesehatan pengungsi:
+
+* **Pemisahan Ruang:** Area pria, wanita, lansia, dan ibu menyusui (ruang laktasi) harus dipisahkan jika memungkinkan.
+* **Sanitasi (MCK):** Penempatan toilet portabel di titik yang tidak memiliki fasilitas MCK permanen yang memadai.
+* **Dapur Umum Terpadu:** Satu shelter utama minimal memiliki satu dapur umum yang mampu memproduksi makanan siap saji 3 kali sehari.
+* **Posko Kesehatan 24 Jam:** Penempatan tenaga medis dari Puskesmas setempat untuk memantau penyakit pasca-banjir (gatal-gatal, diare, ISPA).
+
+---
+
+### **3. Strategi Pengelolaan Pengungsian**
+
+* **Pemanfaatan Gedung Pemerintah & Sekolah:** Sesuai arahan Bapak Bupati, sekolah-sekolah yang libur akibat banjir akan difungsikan sebagai shelter darurat sementara.
+* **Pendataan Berbasis Digital:** Relawan akan mendata jumlah pengungsi (bayi, balita, dewasa, lansia) secara *real-time* agar distribusi logistik (pampers, susu bayi, selimut) tepat sasaran dan tidak ada yang terlewat.
+* **Keamanan Shelter:** Penempatan personil Satpol PP dan koordinasi dengan Polsek/Koramil setempat untuk menjaga barang-barang yang ditinggalkan pengungsian dan menjaga ketertiban di lokasi pengungsian.
+
+---
+
+### **4. Jalur Distribusi Logistik ke Shelter**
+
+Jika jalan utama terputus (seperti di Pantura Kraton/Rejoso):
+
+* Logistik akan dikirim menggunakan **Perahu Karet** atau **Truk Tinggi (Unimog)** milik TNI/Polri/BPBD.
+* Pemanfaatan helipad darurat (jika dibutuhkan dalam kondisi sangat terisolasi) di lapangan terbuka yang tidak tergenang.
+
+**Mohon Arahan Bapak Bupati:**
+Apakah kami diizinkan untuk segera mengeluarkan Surat Keputusan (SK) Tanggap Darurat agar anggaran belanja tidak terduga (BTT) bisa segera cair untuk operasional shelter dan dapur umum ini?

@@ -20,6 +20,8 @@ import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Network from "expo-network";
+import * as Speech from "expo-speech";
+import { Audio } from "expo-av";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import Colors from "@/constants/colors";
 import ShelterFinder from "@/components/ShelterFinder";
@@ -428,7 +430,15 @@ function DisasterNotifBanner({
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function MessageBubble({ 
+  message, 
+  onSpeak,
+  isSpeaking
+}: { 
+  message: Message;
+  onSpeak?: (messageId: string, text: string) => void;
+  isSpeaking: boolean;
+}) {
   return (
     <View
       style={[
@@ -441,29 +451,48 @@ function MessageBubble({ message }: { message: Message }) {
           <Ionicons name="shield-checkmark" size={18} color={C.accent} />
         </View>
       )}
-      <View
-        style={[
-          styles.bubble,
-          message.isUser ? styles.userBubble : styles.botBubble,
-        ]}
-      >
-        <Text
+      <View style={styles.bubbleContainer}>
+        <View
           style={[
-            styles.bubbleText,
-            message.isUser ? styles.userBubbleText : styles.botBubbleText,
-          ]}
-          selectable
-        >
-          {message.text}
-        </Text>
-        <Text
-          style={[
-            styles.timestamp,
-            message.isUser ? styles.timestampUser : styles.timestampBot,
+            styles.bubble,
+            message.isUser ? styles.userBubble : styles.botBubble,
           ]}
         >
-          {formatTime(message.timestamp)}
-        </Text>
+          <Text
+            style={[
+              styles.bubbleText,
+              message.isUser ? styles.userBubbleText : styles.botBubbleText,
+            ]}
+            selectable
+          >
+            {message.text}
+          </Text>
+          <View style={styles.bubbleFooter}>
+            <Text
+              style={[
+                styles.timestamp,
+                message.isUser ? styles.timestampUser : styles.timestampBot,
+              ]}
+            >
+              {formatTime(message.timestamp)}
+            </Text>
+            {!message.isUser && onSpeak && (
+              <Pressable 
+                onPress={() => onSpeak(message.id, message.text)}
+                style={({ pressed }) => [
+                  styles.speakerBtn,
+                  { opacity: pressed ? 0.6 : 1 }
+                ]}
+              >
+                <Ionicons 
+                  name={isSpeaking ? "volume-high" : "volume-medium"} 
+                  size={16} 
+                  color={isSpeaking ? C.accent : C.textMuted} 
+                />
+              </Pressable>
+            )}
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -506,6 +535,9 @@ export default function ChatScreen() {
   const [disasterNotif, setDisasterNotif] = useState<DisasterNotif | null>(null);
   const [showDisasterBanner, setShowDisasterBanner] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const recordingRef = useRef<Audio.Recording | null>(null);
   const lastDisasterIds = useRef<Set<string>>(new Set());
   const disasterInitialized = useRef(false);
 
@@ -570,6 +602,16 @@ export default function ChatScreen() {
 
         if (showNotif && lastGempaId && gempaId !== lastGempaId) {
           setShowBanner(true);
+          
+          // Injeksi ke Chat
+          const alertMsg: Message = {
+            id: generateId(),
+            text: `🚨 ALERT GEMPA BARU\n\nMagnitudo: M${gempa.Magnitude}\nLokasi: ${gempa.Wilayah}\nWaktu: ${gempa.Jam}\nStatus: ${gempa.Potensi || "Sedang diperbarui"}\n\nTetap tenang dan waspada. Klik ikon peta di pojok kanan atas untuk info detail.`,
+            isUser: false,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, alertMsg]);
+
           if (Platform.OS !== "web") {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           }
@@ -631,6 +673,18 @@ export default function ChatScreen() {
               floodDepth: latest.floodDepth,
             });
             setShowDisasterBanner(true);
+            
+            // Injeksi semua laporan baru ke Chat
+            newReports.forEach(report => {
+              const alertMsg: Message = {
+                id: generateId(),
+                text: `🚨 LAPORAN BENCANA: ${report.typeLabel.toUpperCase()}\n\nLokasi: ${report.city || "Indonesia"}\nLaporan: ${report.text}${report.floodDepth ? `\nKedalaman Air: ${report.floodDepth}cm` : ""}\n\nKami telah meneruskan informasi ini ke unit terkait. Tetap waspada!`,
+                isUser: false,
+                timestamp: new Date(),
+              };
+              setMessages((prev) => [...prev, alertMsg]);
+            });
+
             if (Platform.OS !== "web") {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             }
@@ -680,6 +734,28 @@ export default function ChatScreen() {
     }
   }, []);
 
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+  const handleSpeak = useCallback(async (messageId: string, text: string) => {
+    if (speakingMessageId === messageId) {
+      await Speech.stop();
+      setSpeakingMessageId(null);
+      return;
+    }
+
+    if (speakingMessageId) {
+      await Speech.stop();
+    }
+
+    setSpeakingMessageId(messageId);
+    Speech.speak(text, {
+      language: "id-ID",
+      pitch: 1.0,
+      rate: 1.0,
+      onDone: () => setSpeakingMessageId(null),
+      onError: () => setSpeakingMessageId(null),
+    });
+  }, [speakingMessageId]);
+
   const sendMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -724,9 +800,135 @@ export default function ChatScreen() {
       };
       setMessages((prev) => [...prev, botMsg]);
       setIsTyping(false);
+
+      // Auto-speak in voice mode
+      if (isVoiceMode) {
+        handleSpeak(botMsg.id, reply);
+      }
     },
-    [isTyping, sendToApi, isOffline],
+    [isTyping, sendToApi, isOffline, isVoiceMode, handleSpeak],
   );
+
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  const startVoiceInput = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        if (!recognitionRef.current) {
+          recognitionRef.current = new SpeechRecognition();
+          recognitionRef.current.continuous = false;
+          recognitionRef.current.interimResults = true;
+          recognitionRef.current.lang = 'id-ID';
+
+          recognitionRef.current.onresult = (event: any) => {
+            const transcript = Array.from(event.results)
+              .map((result: any) => result[0])
+              .map((result: any) => result.transcript)
+              .join('');
+            setInputText(transcript);
+          };
+
+          recognitionRef.current.onend = () => {
+            setIsRecording(false);
+          };
+          
+          recognitionRef.current.onerror = (event: any) => {
+            console.error('Speech recognition error:', event.error);
+            setIsRecording(false);
+          };
+        }
+        
+        try {
+          recognitionRef.current.start();
+          setIsRecording(true);
+        } catch (e) {
+          console.error('Failed to start speech recognition:', e);
+        }
+      } else {
+        alert("Browser Anda tidak mendukung Voice Input. Silakan gunakan Chrome/Edge.");
+      }
+    } else {
+      // Native Implementation using expo-av + Whisper
+      try {
+        if (recordingRef.current) {
+          await recordingRef.current.stopAndUnloadAsync().catch(() => {});
+          recordingRef.current = null;
+        }
+
+        const permission = await Audio.requestPermissionsAsync();
+        if (permission.status !== 'granted') {
+          alert("Izin mikrofon diperlukan untuk fitur ini.");
+          return;
+        }
+
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
+
+        const { recording } = await Audio.Recording.createAsync(
+          Audio.RecordingOptionsPresets.HIGH_QUALITY
+        );
+        recordingRef.current = recording;
+        setIsRecording(true);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } catch (err) {
+        console.error('Failed to start recording', err);
+        setIsRecording(false);
+      }
+    }
+  }, []);
+
+  const stopVoiceInput = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        setIsRecording(false);
+      }
+    } else {
+      const recording = recordingRef.current;
+      if (!recording) return;
+      
+      try {
+        setIsRecording(false);
+        recordingRef.current = null; // Nullify immediately to prevent double-stop
+
+        const status = await recording.getStatusAsync();
+        if (status.canRecord) {
+          await recording.stopAndUnloadAsync();
+        }
+        
+        const uri = recording.getURI();
+
+        if (uri) {
+          setIsTranscribing(true);
+          const formData = new FormData();
+          // @ts-ignore
+          formData.append('file', {
+            uri,
+            type: 'audio/m4a',
+            name: 'recording.m4a',
+          });
+
+          // @ts-ignore
+          const res = await apiRequest("POST", "/api/voice/transcribe", formData);
+          
+          const data = await res.json();
+          if (data.success && data.text) {
+            setInputText(data.text);
+          } else {
+            console.error("Transcription failed:", data.error);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to stop recording', err);
+      } finally {
+        setIsTranscribing(false);
+      }
+    }
+  }, []);
 
   const handleQuickAction = useCallback(
     (type: "gempa" | "p3k" | "shelter" | "bencana" | "lapor") => {
@@ -766,8 +968,14 @@ export default function ChatScreen() {
   }, [inputText, sendMessage]);
 
   const renderItem = useCallback(
-    ({ item }: { item: Message }) => <MessageBubble message={item} />,
-    [],
+    ({ item }: { item: Message }) => (
+      <MessageBubble 
+        message={item} 
+        onSpeak={item.isUser ? undefined : handleSpeak} 
+        isSpeaking={speakingMessageId === item.id}
+      />
+    ),
+    [handleSpeak, speakingMessageId],
   );
 
   const keyExtractor = useCallback((item: Message) => item.id, []);
@@ -808,6 +1016,15 @@ export default function ChatScreen() {
               )}
             </Pressable>
           )}
+          <Pressable
+            style={({ pressed }) => [
+              styles.gempaHeaderBtn,
+              { opacity: pressed ? 0.7 : 1, backgroundColor: isVoiceMode ? C.accent : C.quickAction },
+            ]}
+            onPress={() => setIsVoiceMode(!isVoiceMode)}
+          >
+            <Ionicons name={isVoiceMode ? "volume-high" : "volume-mute"} size={18} color={isVoiceMode ? "#fff" : C.accent} />
+          </Pressable>
           <View style={[styles.bmkgBadge, isOffline && { backgroundColor: "#EF444422", borderColor: "#EF444444" }]}>
             <Text style={[styles.bmkgBadgeText, isOffline && { color: "#EF4444" }]}>
               {isOffline ? "LOCAL" : "BMKG"}
@@ -1000,22 +1217,28 @@ export default function ChatScreen() {
               />
             </View>
             <Pressable
-              style={({ pressed }) => [
-                styles.sendButton,
-                inputText.trim() && !isTyping
-                  ? { backgroundColor: C.accent, opacity: pressed ? 0.8 : 1 }
-                  : { backgroundColor: C.surfaceLight, opacity: 0.5 },
-              ]}
-              onPress={handleSend}
-              disabled={!inputText.trim() || isTyping}
-              testID="send-button"
-            >
+            style={({ pressed }) => [
+              styles.sendButton,
+              {
+                backgroundColor: inputText.trim() ? C.accent : (isRecording ? "#EF4444" : C.inputBg),
+                opacity: (pressed || isTyping) ? 0.7 : 1,
+                borderWidth: inputText.trim() ? 0 : 1,
+                borderColor: C.border,
+              },
+            ]}
+            onPress={inputText.trim() ? handleSend : (isRecording ? stopVoiceInput : startVoiceInput)}
+            disabled={isTyping || isTranscribing}
+          >
+            {isTyping || isTranscribing ? (
+              <ActivityIndicator size="small" color={C.text} />
+            ) : (
               <Ionicons
-                name="send"
-                size={18}
-                color={inputText.trim() && !isTyping ? "#fff" : C.textMuted}
+                name={inputText.trim() ? "send" : (isRecording ? "stop" : "mic")}
+                size={20}
+                color={inputText.trim() ? "#fff" : (isRecording ? "#fff" : C.textMuted)}
               />
-            </Pressable>
+            )}
+          </Pressable>
           </View>
 
           <Text style={styles.disclaimer}>
@@ -1689,5 +1912,21 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 6,
     marginBottom: 2,
+  },
+  bubbleContainer: {
+    flexShrink: 1,
+    maxWidth: "85%",
+  },
+  bubbleFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    marginTop: 4,
+    gap: 8,
+  },
+  speakerBtn: {
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.05)",
   },
 });

@@ -1,6 +1,11 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import path from "node:path";
+import multer from "multer";
+import fs from "node:fs";
+
+const upload = multer({ dest: "uploads/" });
+const GROQ_AUDIO_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
 
 const BMKG_BASE = "https://data.bmkg.go.id/DataMKG/TEWS";
 const BMKG_NOWCAST = "https://www.bmkg.go.id/alerts/nowcast/id";
@@ -195,6 +200,46 @@ async function chatWithGroq(
   }
 }
 
+async function transcribeAudio(filePath: string): Promise<string | null> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const formData = new FormData();
+    const fileBuffer = fs.readFileSync(filePath);
+    const blob = new Blob([fileBuffer], { type: "audio/m4a" });
+    
+    formData.append("file", blob, "recording.m4a");
+    formData.append("model", "whisper-large-v3");
+    formData.append("language", "id");
+
+    const res = await fetch(GROQ_AUDIO_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("Groq Whisper error:", res.status, errText);
+      return null;
+    }
+
+    const data = await res.json();
+    return data.text || null;
+  } catch (e) {
+    console.error("Transcription error:", e);
+    return null;
+  } finally {
+    // Bersihkan file sementara
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  }
+}
+
 async function generateFallbackReply(message: string): Promise<string> {
   const lower = message.toLowerCase();
 
@@ -372,7 +417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = await fetchJson(`${BMKG_BASE}/autogempa.json`);
       res.json({ success: true, data: data.Infogempa.gempa });
-    } catch (e) {
+    } catch {
       res.status(500).json({ success: false, error: "Gagal mengambil data gempa" });
     }
   });
@@ -381,7 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = await fetchJson(`${BMKG_BASE}/gempaterkini.json`);
       res.json({ success: true, data: data.Infogempa.gempa });
-    } catch (e) {
+    } catch {
       res.status(500).json({ success: false, error: "Gagal mengambil data gempa terkini" });
     }
   });
@@ -390,7 +435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = await fetchJson(`${BMKG_BASE}/gempadirasakan.json`);
       res.json({ success: true, data: data.Infogempa.gempa });
-    } catch (e) {
+    } catch {
       res.status(500).json({ success: false, error: "Gagal mengambil data gempa dirasakan" });
     }
   });
@@ -400,7 +445,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const xml = await fetchXml(BMKG_NOWCAST);
       const items = parseNowcastRss(xml);
       res.json({ success: true, data: items });
-    } catch (e) {
+    } catch {
       res.status(500).json({ success: false, error: "Gagal mengambil data peringatan cuaca" });
     }
   });
@@ -488,6 +533,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     const fallbackReply = await generateFallbackReply(message);
     res.json({ reply: fallbackReply });
+  });
+
+  app.post("/api/voice/transcribe", upload.single("file"), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: "Tidak ada file audio" });
+      }
+
+      const text = await transcribeAudio(req.file.path);
+      if (!text) {
+        return res.status(500).json({ success: false, error: "Gagal mentranskripsi audio" });
+      }
+
+      res.json({ success: true, text });
+    } catch (e) {
+      console.error("Transcribe API error:", e);
+      res.status(500).json({ success: false, error: "Terjadi kesalahan sistem" });
+    }
   });
 
   const httpServer = createServer(app);
